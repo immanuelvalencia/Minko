@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'FrameStack',
+  title: 'Minkow',
   description:
     'Interactive 3D video viewer — a clip becomes one frame stack, with width and height the picture and depth time.',
 };

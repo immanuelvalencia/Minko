@@ -69,13 +69,15 @@ const DEMOS = [
   { id: 'kinetic-bounce', title: 'Kinetic Bounce', description: 'A ball tracing motion through space.' },
   { id: 'dvd-corner-chase', title: 'DVD Corner Chase', description: 'A classic screensaver path study.' },
 ];
+const EXPORT_ENABLED = false;
 
-const SETTINGS_KEY = 'framestack.viewer-settings.v1';
+const SETTINGS_KEY = 'minkow.viewer-settings.v1';
+const LEGACY_SETTINGS_KEYS = ['minko.viewer-settings.v1', 'framestack.viewer-settings.v1'];
 
 function loadSavedSettings(): Record<string, any> {
   if (typeof window === 'undefined') return {};
   try {
-    const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
+    const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || LEGACY_SETTINGS_KEYS.map((key) => window.localStorage.getItem(key)).find(Boolean) || '{}');
     return saved && typeof saved === 'object' ? saved : {};
   } catch {
     return {};
@@ -93,6 +95,8 @@ export default function FrameStack() {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceVideoRef = useRef<HTMLVideoElement | null>(null);
+  const sourceHostRef = useRef<HTMLDivElement | null>(null);
+  const showOriginalRef = useRef(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // The engine lives in refs: it runs its own loop and must not be rebuilt by a
@@ -164,7 +168,7 @@ export default function FrameStack() {
       setError({
         title: 'WebGL2 is not available in this browser.',
         detail:
-          'FrameStack raymarches a 3D texture, which needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari.',
+          'Minkow raymarches a 3D texture, which needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari.',
       });
     }
 
@@ -173,14 +177,25 @@ export default function FrameStack() {
       if (block) {
         const state = playRef.current;
         if (state.playing) {
-          state.head += dt * state.rate;
-          if (state.head >= block.depth - 1) {
-            if (loopRef.current) {
-              state.head = 0;
-            } else {
-              state.head = block.depth - 1;
-              state.playing = false;
-              setPlaying(false);
+          const sourceVideo = sourceVideoRef.current;
+          const probe = probeRef.current;
+          if (showOriginalRef.current && sourceVideo && probe) {
+            // The original video's decoded clock drives the frame stack. Repeated
+            // seeks during playback caused the video to stutter and fall behind.
+            if (!sourceVideo.seeking && sourceVideo.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              state.head = Math.min(block.depth - 1,
+                sourceVideo.currentTime / probe.duration * (block.depth - 1));
+            }
+          } else {
+            state.head += dt * state.rate;
+            if (state.head >= block.depth - 1) {
+              if (loopRef.current) {
+                state.head = 0;
+              } else {
+                state.head = block.depth - 1;
+                state.playing = false;
+                setPlaying(false);
+              }
             }
           }
           block.setPlayhead(state.head);
@@ -264,10 +279,12 @@ export default function FrameStack() {
     loopRef.current = loop;
   }, [loop]);
 
+  useEffect(() => { showOriginalRef.current = showOriginal; }, [showOriginal]);
+
   useEffect(() => {
     const block = blockRef.current;
     const probe = probeRef.current;
-    if (block && probe) playRef.current.rate = (block.depth / Math.max(0.001, probe.duration)) * playbackRate;
+    if (block && probe) playRef.current.rate = ((block.depth - 1) / Math.max(0.001, probe.duration)) * playbackRate;
   }, [clip, playbackRate]);
 
   useEffect(() => {
@@ -278,17 +295,57 @@ export default function FrameStack() {
     canvasRef.current?.classList.toggle('ready', !!clip);
   }, [clip]);
 
-  // Keep the original clip in lockstep with the frame stack. During normal
-  // playback the browser video clock runs smoothly; seeking corrects any drift.
+  // Reuse the video already opened and decoded during extraction. Keeping it
+  // mounted lets the browser retain the source decoder and buffered media.
+  useEffect(() => {
+    const video = probeRef.current?.video as HTMLVideoElement | undefined;
+    const host = sourceHostRef.current;
+    if (!clip || !video || !host) return;
+    video.pause();
+    video.currentTime = 0;
+    video.controls = false;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = 'auto';
+    host.appendChild(video);
+    sourceVideoRef.current = video;
+    const onEnded = () => {
+      if (!loopRef.current) {
+        playRef.current.head = Math.max(0, clip.depth - 1);
+        playRef.current.playing = false;
+        blockRef.current?.setPlayhead(playRef.current.head);
+        setPlaying(false);
+        setPlayhead(playRef.current.head);
+      }
+    };
+    video.addEventListener('ended', onEnded);
+    return () => {
+      video.removeEventListener('ended', onEnded);
+      video.pause();
+      video.remove();
+      if (sourceVideoRef.current === video) sourceVideoRef.current = null;
+    };
+  }, [clip]);
+
   useEffect(() => {
     const video = sourceVideoRef.current;
-    if (!video || !clip || !showOriginal) return;
-    const targetTime = (playhead / Math.max(1, clip.depth - 1)) * clip.duration;
+    const block = blockRef.current;
+    const probe = probeRef.current;
+    if (!video || !block || !probe) return;
     video.playbackRate = playbackRate;
-    if (Math.abs(video.currentTime - targetTime) > 0.12) video.currentTime = targetTime;
-    if (playing) video.play().catch(() => { /* muted preview can safely remain paused */ });
-    else video.pause();
-  }, [clip, playhead, playbackRate, playing, showOriginal]);
+    video.loop = loop;
+    if (showOriginal) {
+      const targetTime = playRef.current.head / Math.max(1, block.depth - 1) * probe.duration;
+      if (Math.abs(video.currentTime - targetTime) > 0.05) video.currentTime = targetTime;
+      if (playing) video.play().catch(() => {
+        playRef.current.playing = false;
+        setPlaying(false);
+      });
+      else video.pause();
+    } else {
+      video.pause();
+    }
+  }, [clip, showOriginal, playing, playbackRate, loop]);
 
   // Preferences belong to this browser only; source video data remains local and
   // is never stored or uploaded. Saving after each change also survives a reload.
@@ -313,11 +370,15 @@ export default function FrameStack() {
     playRef.current.head = clamped;
     block.setPlayhead(clamped);
     viewer.setFocusZ(block.zOf(clamped));
+    const video = sourceVideoRef.current;
+    const probe = probeRef.current;
+    if (video && probe) video.currentTime = clamped / Math.max(1, block.depth - 1) * probe.duration;
     setPlayhead(clamped);
   }, []);
 
   const pause = useCallback(() => {
     playRef.current.playing = false;
+    sourceVideoRef.current?.pause();
     setPlaying(false);
   }, []);
 
@@ -421,7 +482,7 @@ export default function FrameStack() {
       playRef.current = {
         playing: false,
         head: 0,
-        rate: result.layout.depth / Math.max(0.001, probe.duration),
+        rate: ((result.layout.depth - 1) / Math.max(0.001, probe.duration)) * playbackRate,
       };
 
       viewer.frameBlock({
@@ -475,7 +536,7 @@ export default function FrameStack() {
       busyRef.current = false;
       abortRef.current = null;
     }
-  }, [pause, temporalLimit]);
+  }, [pause, temporalLimit, playbackRate]);
 
   const loadDemo = useCallback(async (id: string) => {
     const demo = DEMOS.find((item) => item.id === id);
@@ -547,8 +608,8 @@ export default function FrameStack() {
           onProgress: (p: { done: number; total: number }) => setExportProgress(p),
         });
 
-        const base = (probeRef.current.file?.name ?? 'framestack').replace(/\.[^.]+$/, '');
-        saveBlob(result.blob, `${base}-framestack.${extensionFor(result.mimeType)}`);
+        const base = (probeRef.current.file?.name ?? 'minkow').replace(/\.[^.]+$/, '');
+        saveBlob(result.blob, `${base}-minkow.${extensionFor(result.mimeType)}`);
         setExportStatus(`Saved ${result.width}×${result.height}, ${formatBytes(result.blob.size)}.`);
         setTimeout(() => setExportOpen(false), 1400);
       } catch (err: any) {
@@ -630,7 +691,7 @@ export default function FrameStack() {
           break;
         case 'e':
         case 'E':
-          if (clip) setExportOpen(true);
+          if (EXPORT_ENABLED && clip) setExportOpen(true);
           break;
         case 'Escape':
           if (exportOpen) setExportOpen(false);
@@ -713,7 +774,7 @@ export default function FrameStack() {
             <rect x="9" y="8" width="17" height="12" rx="1.5" />
           </svg>
           <div className="brand-text">
-            <h1>FrameStack</h1>
+            <h1>Minkow</h1>
             <p>width × height × time</p>
           </div>
         </div>
@@ -740,7 +801,7 @@ export default function FrameStack() {
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => setCinema(true)}>
             Cinema
           </button>
-          <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => setExportOpen(true)}>
+          <button className="btn btn-ghost" type="button" disabled={!EXPORT_ENABLED || disabled} title="Export is temporarily disabled while timing is refined." onClick={() => setExportOpen(true)}>
             Export
           </button>
           <button className="btn btn-ghost" type="button" onClick={() => setAboutOpen(true)}>
@@ -784,22 +845,10 @@ export default function FrameStack() {
         }}
       >
         <div className="canvas-host" ref={hostRef} />
-        {showOriginal && clip && (
-          <section className="source-preview" aria-label="Original video preview">
+        {clip && (
+          <section className={showOriginal ? 'source-preview' : 'source-preview source-preview-hidden'} aria-label="Original video preview">
             <span className="source-preview-label">Original video</span>
-            <video
-              ref={sourceVideoRef}
-              src={probeRef.current?.url}
-              muted
-              playsInline
-              preload="auto"
-              onLoadedMetadata={(event) => {
-                const video = event.currentTarget;
-                video.currentTime = (playRef.current.head / Math.max(1, clip.depth - 1)) * clip.duration;
-                video.playbackRate = playbackRate;
-                if (playRef.current.playing) video.play().catch(() => {});
-              }}
-            />
+            <div className="source-video-host" ref={sourceHostRef} />
           </section>
         )}
 

@@ -1,7 +1,8 @@
-# FrameStack
+# Minkow
 
-An interactive 3D video viewer. A clip is decoded into a single spatiotemporal
-frame stack — width and height are the picture, depth is time — and drawn as one solid
+An interactive 3D video viewer inspired by Hermann Minkowski's space-time perspective.
+A clip is decoded into a single spatiotemporal frame stack — width and height are the
+picture, depth is time — and drawn as one solid
 block you can orbit, scrub and move through.
 
 There are no discrete frame planes. The whole clip is uploaded as a 3D texture and

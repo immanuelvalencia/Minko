@@ -13,7 +13,7 @@ const FrameStack = dynamic(() => import('./FrameStack'), {
   loading: () => (
     <div className="boot">
       <div className="boot-mark" />
-      <p>Starting FrameStack…</p>
+      <p>Starting Minkow…</p>
     </div>
   ),
 });
