@@ -6,7 +6,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 function playOpeningTone() {
   if (!window.AudioContext) return;
   const audio = new AudioContext();
+  let started = false;
+  // Audible autoplay may be blocked. Close the suspended context instead of
+  // leaving a pending sound that could unexpectedly play on a later click.
+  const blockedTimer = window.setTimeout(() => {
+    if (!started) void audio.close().catch(() => {});
+  }, 350);
   void audio.resume().then(() => {
+    if (audio.state !== 'running') return;
+    started = true;
+    window.clearTimeout(blockedTimer);
     const start = audio.currentTime;
     const master = audio.createGain();
     master.gain.value = 0.12;
@@ -26,8 +35,11 @@ function playOpeningTone() {
       oscillator.start(at);
       oscillator.stop(at + 0.92);
     });
-    window.setTimeout(() => void audio.close(), 1600);
-  }).catch(() => void audio.close());
+    window.setTimeout(() => void audio.close().catch(() => {}), 1600);
+  }).catch(() => {
+    window.clearTimeout(blockedTimer);
+    void audio.close().catch(() => {});
+  });
 }
 
 /**
@@ -53,6 +65,7 @@ export default function MinkoClient() {
   const [leaving, setLeaving] = useState(false);
   const [entered, setEntered] = useState(false);
   const exitTimer = useRef<number | null>(null);
+  const transitionStarted = useRef(false);
   const onReady = useCallback(() => setAppReady(true), []);
 
   useEffect(() => {
@@ -67,12 +80,13 @@ export default function MinkoClient() {
 
   const canEnter = introReady && (appReady || slowLoad);
 
-  const enter = (withSound: boolean) => {
-    if (!canEnter || leaving) return;
-    if (withSound) playOpeningTone();
+  useEffect(() => {
+    if (!canEnter || transitionStarted.current) return;
+    transitionStarted.current = true;
+    playOpeningTone();
     setLeaving(true);
     exitTimer.current = window.setTimeout(() => setEntered(true), 520);
-  };
+  }, [canEnter]);
 
   return (
     <div className="minko-root">
@@ -80,7 +94,7 @@ export default function MinkoClient() {
         <Minko onReady={onReady} />
       </div>
       {!entered && (
-        <div className={`intro-screen${leaving ? ' intro-leaving' : ''}`} role="dialog" aria-modal="true" aria-labelledby="introTitle">
+        <div className={`intro-screen${leaving ? ' intro-leaving' : ''}`} role="status" aria-labelledby="introTitle">
           <div className="intro-ambient" aria-hidden="true">
             <div className="intro-grid" />
             <div className="intro-halo" />
@@ -102,16 +116,7 @@ export default function MinkoClient() {
             <div className="intro-progress" aria-label={canEnter ? 'Ready' : 'Loading Minko'}>
               <span className={canEnter ? 'intro-progress-ready' : ''} />
             </div>
-            <p className="intro-status" aria-live="polite">{appReady && introReady ? 'Ready to explore' : slowLoad ? 'Taking longer than expected — you can continue' : 'Preparing your workspace…'}</p>
-            <div className="intro-actions">
-              <button className="btn btn-primary" type="button" disabled={!canEnter || leaving} onClick={() => enter(true)}>
-                Enter with sound <span aria-hidden="true">↗</span>
-              </button>
-              <button className="btn btn-ghost" type="button" disabled={!canEnter || leaving} onClick={() => enter(false)}>
-                Continue quietly
-              </button>
-            </div>
-            <p className="intro-sound-note">A short opening tone; playback stays quiet.</p>
+            <p className="intro-status" aria-live="polite">{appReady && introReady ? 'Ready to explore' : slowLoad ? 'Opening Minko…' : 'Preparing your workspace…'}</p>
           </div>
           <p className="intro-footer">A SPATIAL VIEW OF TIME</p>
         </div>

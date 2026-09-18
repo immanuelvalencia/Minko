@@ -32,8 +32,8 @@ provide quick motion-path examples for evaluating the frame-stack view.
 ## Opening screen
 
 Minko opens with a short animated space-time scene while the viewer initializes.
-Choose **Enter with sound** for a brief synthesized opening cue, or **Continue quietly**.
-Browsers require a click before playing audio; the cue does not continue during video playback.
+It transitions into the viewer automatically. A brief synthesized cue plays when
+the browser permits audible autoplay; otherwise the opening remains silent.
 
 ## Deploying
 
@@ -127,10 +127,12 @@ GPUs) caps the frame count; beyond that, slices are sampled evenly across the wh
 timeline rather than truncating it. Whenever either compromise applies, the app says
 so in a notice bar rather than quietly degrading.
 
-For longer clips, choose **Long video** or **Very long** before opening the file.
-Those modes use 1,024 or 512 evenly spaced temporal samples, respectively. They
-retain the complete video duration while reducing decoding time and memory pressure;
-they do not preserve every source frame.
+The upload dialog orders **Frame detail** from Light (up to 512 slices) to Balanced
+(up to 1,024) to Full detail (up to the GPU limit). Every preset spans the entire
+source duration; lower slice counts reduce processing time and memory use but do
+not preserve every source frame. The dialog warns about local processing costs.
+For clips over 2 minutes, open **Enable longer videos** and acknowledge the
+disclaimer before processing.
 
 ## The shader
 

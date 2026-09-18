@@ -27,7 +27,7 @@ import {
 import VolumePanel from './VolumePanel';
 import EffectsPanel from './EffectsPanel';
 import ExportDialog, { type ExportOptions } from './ExportDialog';
-import { Dropzone, ProgressPane, ErrorPane, Notice, AboutPane } from './Overlays';
+import { Dropzone, UploadDialog, ProgressPane, ErrorPane, Notice, AboutPane } from './Overlays';
 
 /* --------------------------------------------------------------- helpers */
 
@@ -70,6 +70,7 @@ const DEMOS = [
   { id: 'dvd-corner-chase', title: 'DVD Corner Chase', description: 'A classic screensaver path study.' },
 ];
 const EXPORT_ENABLED = false;
+const LONG_VIDEO_SECONDS = 120;
 
 const SETTINGS_KEY = 'minko.viewer-settings.v1';
 const LEGACY_SETTINGS_KEYS = ['minkow.viewer-settings.v1', 'framestack.viewer-settings.v1'];
@@ -97,7 +98,6 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
   const sourceVideoRef = useRef<HTMLVideoElement | null>(null);
   const sourceHostRef = useRef<HTMLDivElement | null>(null);
   const showOriginalRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // The engine lives in refs: it runs its own loop and must not be rebuilt by a
   // React render. React owns the chrome, never the frame.
@@ -118,6 +118,11 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
   const [error, setError] = useState<{ title: string; detail: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadDemo, setUploadDemo] = useState<(typeof DEMOS)[number] | null>(null);
+  const [longVideoApproved, setLongVideoApproved] = useState(false);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [tab, setTab] = useState<'volume' | 'effects'>('volume');
   const [cinema, setCinema] = useState(false);
@@ -137,7 +142,7 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
   const [showOriginal, setShowOriginal] = useState<boolean>(savedSettings.showOriginal ?? false);
   // A lower temporal cap keeps very long clips practical. Frames are sampled
   // evenly over the entire duration, never truncated.
-  const [temporalLimit, setTemporalLimit] = useState<number>(savedSettings.temporalLimit ?? 0);
+  const [temporalLimit, setTemporalLimit] = useState<number>([0, 512, 1024].includes(savedSettings.temporalLimit) ? savedSettings.temporalLimit : 512);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -411,18 +416,12 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
 
   /* ------------------------------------------------------------- loading */
 
-  const loadFile = useCallback(async (file: File) => {
+  const loadFile = useCallback(async (file: File, limit: number, allowLongVideo: boolean) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setError(null);
     setNotice(null);
     pause();
-
-    blockRef.current?.dispose();
-    blockRef.current = null;
-    if (probeRef.current?.url) URL.revokeObjectURL(probeRef.current.url);
-    probeRef.current = null;
-    setClip(null);
 
     const controller = new AbortController();
     abortRef.current = controller;
@@ -431,6 +430,7 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
     setProgress({ title: 'Reading video', detail: 'Opening the file…', ratio: null, count: '' });
 
     let probe: any = null;
+    let probeCommitted = false;
     try {
       probe = await probeVideo(file, {
         onStatus: (s: string) =>
@@ -438,10 +438,26 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
       });
       if (signal.aborted) throw new CancelledError();
 
+      if (probe.duration > LONG_VIDEO_SECONDS && !allowLongVideo) {
+        const probeDuration = probe.duration;
+        URL.revokeObjectURL(probe.url);
+        probe = null;
+        setProgress(null);
+        setUploadWarning(`This video is ${formatDuration(probeDuration)} long. Enable longer videos to process clips over 2 minutes.`);
+        setUploadOpen(true);
+        return;
+      }
+
+      blockRef.current?.dispose();
+      blockRef.current = null;
+      if (probeRef.current?.url) URL.revokeObjectURL(probeRef.current.url);
+      probeRef.current = null;
+      setClip(null);
+
       const viewer = viewerRef.current;
       const gl = viewer.renderer.getContext();
       const maxDim = gl.getParameter(gl.MAX_3D_TEXTURE_SIZE) || 2048;
-      const maxDepth = temporalLimit > 0 ? Math.min(maxDim, temporalLimit) : maxDim;
+      const maxDepth = limit > 0 ? Math.min(maxDim, limit) : maxDim;
 
       const layout = volumeLayout(probe.width, probe.height, probe.totalFrames, VOLUME_BUDGET_BYTES, maxDim, maxDepth);
 
@@ -477,6 +493,7 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
 
       blockRef.current = block;
       probeRef.current = probe;
+      probeCommitted = true;
       frameTimesRef.current = result.frameTimes;
       playRef.current = {
         playing: false,
@@ -509,8 +526,8 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
       const notes: string[] = [];
       if (result.layout.sampled) {
         notes.push(
-          temporalLimit > 0
-            ? `${probe.totalFrames.toLocaleString()} source frames were reduced to ${result.layout.depth.toLocaleString()} evenly spaced slices for the selected long-video mode`
+          limit > 0
+            ? `${probe.totalFrames.toLocaleString()} source frames were reduced to ${result.layout.depth.toLocaleString()} evenly spaced slices at the selected frame detail`
             : `${probe.totalFrames.toLocaleString()} frames exceed this GPU's 3D texture limit, so the block holds ${result.layout.depth.toLocaleString()} slices sampled evenly across the clip`
         );
       }
@@ -522,7 +539,7 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
       if (notes.length) setNotice(`${notes.join('; ')}.`);
     } catch (err: any) {
       setProgress(null);
-      if (probe?.url && !blockRef.current) URL.revokeObjectURL(probe.url);
+      if (probe?.url && !probeCommitted) URL.revokeObjectURL(probe.url);
       if (err instanceof CancelledError || signal.aborted) {
         // user stopped it
       } else if (err instanceof UnsupportedVideoError) {
@@ -535,20 +552,37 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
       busyRef.current = false;
       abortRef.current = null;
     }
-  }, [pause, temporalLimit, playbackRate]);
+  }, [pause, playbackRate]);
 
-  const loadDemo = useCallback(async (id: string) => {
+  const loadDemo = useCallback(async (id: string, limit: number, allowLongVideo: boolean) => {
     const demo = DEMOS.find((item) => item.id === id);
     if (!demo) return;
     try {
       const response = await fetch(`/demos/${demo.id}.mp4`);
       if (!response.ok) throw new Error(`Demo could not be loaded (${response.status}).`);
       const blob = await response.blob();
-      await loadFile(new File([blob], `${demo.title}.mp4`, { type: 'video/mp4' }));
+      await loadFile(new File([blob], `${demo.title}.mp4`, { type: 'video/mp4' }), limit, allowLongVideo);
     } catch (err: any) {
       setError({ title: 'Could not load the demo video.', detail: String(err?.message ?? err) });
     }
   }, [loadFile]);
+
+  const openUpload = useCallback((file: File | null = null, demoId: string | null = null) => {
+    setError(null);
+    setUploadFile(file);
+    setUploadDemo(DEMOS.find((item) => item.id === demoId) ?? null);
+    setLongVideoApproved(false);
+    setUploadWarning(null);
+    setUploadOpen(true);
+  }, []);
+
+  const processUpload = useCallback(() => {
+    if (!uploadFile && !uploadDemo) return;
+    setUploadWarning(null);
+    setUploadOpen(false);
+    if (uploadFile) void loadFile(uploadFile, temporalLimit, longVideoApproved);
+    else if (uploadDemo) void loadDemo(uploadDemo.id, temporalLimit, longVideoApproved);
+  }, [uploadFile, uploadDemo, loadFile, loadDemo, temporalLimit, longVideoApproved]);
 
   /* -------------------------------------------------------------- export */
 
@@ -780,14 +814,6 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
 
         <div className="topbar-actions">
           {clip && <span className="clip-meta">{metaLine}</span>}
-          <label className="sampling-select" title="Lower sample counts make longer videos faster to process; the full duration is always retained.">
-            <span>Video length</span>
-            <select value={temporalLimit} disabled={!!clip} onChange={(e) => setTemporalLimit(Number(e.target.value))}>
-              <option value={0}>Full detail</option>
-              <option value={1024}>Long video · 1,024 samples</option>
-              <option value={512}>Very long · 512 samples</option>
-            </select>
-          </label>
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => viewerRef.current?.resetCamera()}>
             Reset view
           </button>
@@ -806,20 +832,9 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
           <button className="btn btn-ghost" type="button" onClick={() => setAboutOpen(true)}>
             About
           </button>
-          <button className="btn btn-primary" type="button" onClick={() => fileInputRef.current?.click()}>
+          <button className="btn btn-primary" type="button" onClick={() => openUpload()}>
             Open video
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            hidden
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) loadFile(file);
-            }}
-          />
         </div>
       </header>
 
@@ -840,7 +855,7 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
           e.preventDefault();
           setDragging(false);
           const file = e.dataTransfer?.files?.[0];
-          if (file) loadFile(file);
+          if (file) openUpload(file);
         }}
       >
         <div className="canvas-host" ref={hostRef} />
@@ -852,7 +867,22 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
         )}
 
         {!clip && !progress && (
-          <Dropzone dragging={dragging} onChoose={() => fileInputRef.current?.click()} demos={DEMOS} onDemo={loadDemo} />
+          <Dropzone dragging={dragging} onChoose={() => openUpload()} demos={DEMOS} onDemo={(id) => openUpload(null, id)} />
+        )}
+
+        {uploadOpen && (
+          <UploadDialog
+            file={uploadFile}
+            demo={uploadDemo}
+            detail={temporalLimit}
+            longVideoApproved={longVideoApproved}
+            warning={uploadWarning}
+            onFile={(file) => { setUploadFile(file); setUploadDemo(null); setUploadWarning(null); }}
+            onDetail={setTemporalLimit}
+            onLongVideoApproved={(approved) => { setLongVideoApproved(approved); setUploadWarning(null); }}
+            onStart={processUpload}
+            onClose={() => setUploadOpen(false)}
+          />
         )}
 
         {progress && (

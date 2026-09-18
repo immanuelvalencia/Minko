@@ -1,5 +1,7 @@
 'use client';
 
+import { useRef, useState } from 'react';
+
 type Demo = { id: string; title: string; description: string };
 type DropzoneProps = { dragging: boolean; onChoose: () => void; demos: Demo[]; onDemo: (id: string) => void };
 
@@ -37,6 +39,83 @@ export function Dropzone({ dragging, onChoose, demos, onDemo }: DropzoneProps) {
         </div>
         <p className="dz-hint">MP4, WebM, MOV · whatever your browser can decode</p>
       </div>
+    </div>
+  );
+}
+
+type UploadDialogProps = {
+  file: File | null;
+  demo: Demo | null;
+  detail: number;
+  longVideoApproved: boolean;
+  warning: string | null;
+  onFile: (file: File) => void;
+  onDetail: (detail: number) => void;
+  onLongVideoApproved: (approved: boolean) => void;
+  onStart: () => void;
+  onClose: () => void;
+};
+
+export function UploadDialog({ file, demo, detail, longVideoApproved, warning, onFile, onDetail, onLongVideoApproved, onStart, onClose }: UploadDialogProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [longNoticeOpen, setLongNoticeOpen] = useState(false);
+  const source = file?.name ?? demo?.title;
+
+  return (
+    <div className="overlay upload-pane" role="presentation" onMouseDown={onClose}>
+      <section className="upload-card" role="dialog" aria-modal="true" aria-labelledby="uploadTitle" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="about-close" type="button" aria-label="Close upload settings" onClick={onClose}>×</button>
+        <p className="upload-kicker">OPEN VIDEO</p>
+        <h2 id="uploadTitle">Prepare your frame stack</h2>
+        <p className="upload-intro">Choose the detail before processing. Every option covers the video&apos;s full duration.</p>
+
+        <div className="upload-source">
+          <span className="upload-label">VIDEO</span>
+          <div className="upload-source-row">
+            <span className="upload-filename">{source ?? 'No video selected'}</span>
+            <button className="btn btn-ghost btn-sm" type="button" onClick={() => inputRef.current?.click()}>{source ? 'Change file' : 'Choose file'}</button>
+          </div>
+          <input ref={inputRef} type="file" accept="video/*" hidden onChange={(event) => {
+            const next = event.target.files?.[0];
+            event.target.value = '';
+            if (next) onFile(next);
+          }} />
+        </div>
+
+        <fieldset className="upload-detail">
+          <legend className="upload-label">FRAME DETAIL <span>lightest → fullest</span></legend>
+          {[
+            { value: 512, title: 'Light', description: 'Up to 512 slices · fastest, lowest memory' },
+            { value: 1024, title: 'Balanced', description: 'Up to 1,024 slices · more motion detail' },
+            { value: 0, title: 'Full detail', description: 'As many frames as your GPU can hold · slowest' },
+          ].map((option) => (
+            <label className={detail === option.value ? 'upload-option selected' : 'upload-option'} key={option.value}>
+              <input type="radio" name="frame-detail" value={option.value} checked={detail === option.value} onChange={() => onDetail(option.value)} />
+              <span><strong>{option.title}</strong><small>{option.description}</small></span>
+            </label>
+          ))}
+        </fieldset>
+
+        <p className="upload-notice">Processing stays in this browser. Long or high-resolution videos may take several minutes, use significant memory, or fail on limited devices. The app may reduce slice resolution to fit your GPU.</p>
+        <button className="upload-long-button" type="button" aria-expanded={longNoticeOpen} onClick={() => setLongNoticeOpen((open) => !open)}>
+          <span>{longVideoApproved ? 'Longer videos enabled' : 'Enable longer videos'}</span>
+          <span aria-hidden="true">{longNoticeOpen ? '−' : '+'}</span>
+        </button>
+        {longNoticeOpen && (
+          <div className="upload-long-disclaimer">
+            <p>Clips over 2 minutes are processed frame by frame on your device. This can take a long time, use substantial memory, and may fail if your browser or GPU runs out of resources. Light detail is recommended.</p>
+            <label className="upload-long">
+              <input type="checkbox" checked={longVideoApproved} onChange={(event) => onLongVideoApproved(event.target.checked)} />
+              <span><strong>I understand — allow longer videos</strong></span>
+            </label>
+          </div>
+        )}
+        {warning && <p className="upload-warning" role="alert">{warning}</p>}
+        <div className="upload-actions">
+          <button className="btn btn-ghost" type="button" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" type="button" disabled={!source} onClick={onStart}>Process video</button>
+        </div>
+      </section>
     </div>
   );
 }
