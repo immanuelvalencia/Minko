@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://minko-viewer.vercel.app'),
   title: 'Minko',
   description:
-    'Interactive 3D video viewer — a clip becomes one frame stack, with width and height the picture and depth time.',
+    'Explore motion as it unfolds through time. Minko turns video into a navigable width × height × time frame stack.',
 };
 
 export const viewport: Viewport = {

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRef, useState } from 'react';
 
 type Demo = { id: string; title: string; description: string };
@@ -209,6 +210,14 @@ export function AboutPane({ onClose }: AboutProps) {
         <p>
           Minko turns video into a navigable frame stack, making motion and change visible across time. Its name is inspired by Hermann Minkowski and the idea of seeing space and time together.
         </p>
+        <div className="about-minkowski">
+          <Image src="/images/hermann-minkowski.jpg" alt="Portrait of Hermann Minkowski" width={813} height={1093} sizes="68px" />
+          <div>
+            <strong>INSPIRED BY HERMANN MINKOWSKI</strong>
+            <p>His space-time diagram shows an event and a moving point&apos;s worldline. Minko applies the visual idea to video, not the physics.</p>
+            <Link href="/about#minkowski">See his story and diagram <span aria-hidden="true">→</span></Link>
+          </div>
+        </div>
         <div className="about-credit" aria-label="Project attribution">
           <span className="about-label">DEVELOPED BY</span>
           <strong>Immanuel Valencia</strong>

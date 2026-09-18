@@ -1,9 +1,11 @@
 import Link from 'next/link';
 import BrandMark from './BrandMark';
+import SiteMotion from './SiteMotion';
 
 export default function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="site">
+      <SiteMotion />
       <header className="site-header">
         <div className="site-wrap site-nav">
           <Link href="/" className="site-brand" aria-label="Minko website home">
@@ -21,7 +23,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
       <footer className="site-footer">
         <div className="site-wrap site-footer-inner">
           <Link href="/" className="site-footer-brand"><BrandMark /><span>Minko<small>WIDTH × HEIGHT × TIME</small></span></Link>
-          <p>See motion beyond the frame.</p>
+          <p>Explore motion as it unfolds through time.</p>
           <div><Link href="/about">About</Link><Link href="/app">Open app</Link></div>
         </div>
       </footer>

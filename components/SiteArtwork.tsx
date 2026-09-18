@@ -20,11 +20,11 @@ export function HeroArtwork() {
           <g key={i} transform={`translate(${i * 58} ${i * 10})`} opacity={0.22 + i * 0.145}>
             <path d="M0 72 181-26V206L0 304Z" fill="url(#heroPlane)" stroke="url(#heroEdge)" strokeWidth={i === 5 ? 2 : 1} />
             <path d="M14 95 166 12M14 281l152-82" stroke="#3f6eaf" strokeOpacity=".16" />
-            <circle cx={42 + i * 14} cy={221 - i * 24} r={i === 5 ? 13 : 9} fill="url(#heroBall)" />
+            <circle className="site-art-slice-ball" cx={42 + i * 14} cy={221 - i * 24} r={i === 5 ? 13 : 9} fill="url(#heroBall)" />
           </g>
         ))}
         <path d="M48 258C112 212 158 269 214 204S315 85 397 154" fill="none" stroke="#72b6ff" strokeWidth="15" strokeOpacity=".35" filter="url(#heroGlow)" />
-        <path d="M48 258C112 212 158 269 214 204S315 85 397 154" fill="none" stroke="#95caff" strokeWidth="3" strokeLinecap="round" strokeDasharray="3 7" />
+        <path className="site-art-trail" d="M48 258C112 212 158 269 214 204S315 85 397 154" fill="none" stroke="#95caff" strokeWidth="3" strokeLinecap="round" strokeDasharray="3 7" />
         <path d="M0 72 354 132 535 34M0 304l354 60 181-98" fill="none" stroke="#7db4ff" strokeOpacity=".6" />
       </g>
       <g fill="#99aed0" fontFamily="ui-monospace, monospace" fontSize="12" letterSpacing="2">
@@ -43,7 +43,7 @@ export function ProcessArtwork() {
         <linearGradient id="processLine"><stop stopColor="#416fba" stopOpacity=".15" /><stop offset=".5" stopColor="#8bbdff" /><stop offset="1" stopColor="#416fba" stopOpacity=".15" /></linearGradient>
         <linearGradient id="processFill" x1="0" x2="1" y1="0" y2="1"><stop stopColor="#173762" /><stop offset="1" stopColor="#0b1323" /></linearGradient>
       </defs>
-      <path d="M296 147h71M642 147h70" stroke="url(#processLine)" strokeWidth="2" strokeDasharray="5 7" />
+      <path className="site-process-flow" d="M296 147h71M642 147h70" stroke="url(#processLine)" strokeWidth="2" strokeDasharray="5 7" />
       <g transform="translate(38 55)">
         <rect width="250" height="180" rx="13" fill="#0b1527" stroke="#395a87" />
         <rect x="13" y="13" width="224" height="154" rx="8" fill="url(#processFill)" />

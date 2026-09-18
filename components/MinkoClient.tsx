@@ -109,7 +109,7 @@ export default function MinkoClient() {
             <BrandMark className="intro-mark brand-mark" />
             <p className="intro-eyebrow">WIDTH × HEIGHT × TIME</p>
             <h1 id="introTitle">Minko</h1>
-            <p className="intro-tagline">See motion beyond the frame.</p>
+            <p className="intro-tagline">Explore motion as it unfolds through time.</p>
             <div className="intro-progress" aria-label={canEnter ? 'Ready' : 'Loading Minko'}>
               <span className={canEnter ? 'intro-progress-ready' : ''} />
             </div>

@@ -1,9 +1,13 @@
 # Minko
 
+Explore motion as it unfolds through time.
+
 The public website lives at `/`, with an About page at `/about` and the interactive
 viewer at `/app`. All navigation between them uses paths on the same domain. The
 viewer logo returns to the website. The website includes illustrated explanations
-of the frame stack and previews of the bundled demo videos.
+of the frame stack, a simplified space-time diagram, a public-domain portrait of
+Hermann Minkowski, and previews of the bundled demo videos. The portrait comes
+from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Hermann_Minkowski_Portrait.jpg).
 
 An interactive 3D video viewer inspired by Hermann Minkowski's space-time perspective.
 A clip is decoded into a single spatiotemporal frame stack — width and height are the
