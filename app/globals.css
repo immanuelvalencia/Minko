@@ -663,3 +663,92 @@ body.cinema:not(.idle) .cinema-pill { opacity: 1; }
   animation: bootpulse 1.4s ease-in-out infinite;
 }
 @keyframes bootpulse { 0%, 100% { opacity: .25; } 50% { opacity: .7; } }
+
+/* ---------- Opening screen ---------- */
+
+.minko-root, .minko-shell { width: 100%; min-height: 100vh; min-height: 100dvh; }
+
+.intro-screen {
+  position: fixed; inset: 0; z-index: 100;
+  display: grid; place-items: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse 75% 65% at 50% 46%, #111d31 0%, #090e19 46%, #05070c 100%);
+  isolation: isolate;
+  transition: opacity .5s ease, transform .5s ease;
+}
+.intro-leaving { opacity: 0; transform: scale(1.025); pointer-events: none; }
+.intro-ambient { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.intro-grid {
+  position: absolute; width: 145%; height: 90%; left: -22.5%; bottom: -39%;
+  transform: perspective(700px) rotateX(63deg);
+  transform-origin: center center;
+  background-image: linear-gradient(rgba(86,139,222,.15) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(86,139,222,.15) 1px, transparent 1px);
+  background-size: 76px 76px;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 42%, transparent 95%);
+  animation: intro-grid-drift 12s linear infinite;
+}
+.intro-halo {
+  position: absolute; width: min(85vw, 960px); aspect-ratio: 1;
+  left: 50%; top: 48%; transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(63,122,230,.17), rgba(32,81,164,.06) 40%, transparent 70%);
+  animation: intro-breathe 5s ease-in-out infinite;
+}
+.intro-frame {
+  position: absolute; width: min(48vw, 470px); aspect-ratio: 1.65;
+  left: 50%; top: 45%; border: 1px solid rgba(106,164,255,.22);
+  border-radius: 16px; box-shadow: 0 0 48px rgba(49,111,218,.07), inset 0 0 48px rgba(49,111,218,.025);
+  transform: translate(-50%, -50%) rotate(-15deg) skewY(6deg);
+  animation: intro-drift 7s ease-in-out infinite;
+}
+.intro-frame-back { margin-left: -64px; margin-top: -38px; opacity: .32; animation-delay: -2s; }
+.intro-frame-mid { margin-left: 0; margin-top: 0; opacity: .5; animation-delay: -1s; }
+.intro-frame-front { margin-left: 64px; margin-top: 38px; opacity: .42; }
+.intro-streak {
+  position: absolute; height: 1px; width: 32vw;
+  background: linear-gradient(90deg, transparent, rgba(106,164,255,.48), transparent);
+  filter: drop-shadow(0 0 5px rgba(91,156,255,.7));
+  animation: intro-streak 8s linear infinite;
+}
+.intro-streak-one { top: 27%; left: -35vw; transform: rotate(-15deg); }
+.intro-streak-two { top: 76%; left: -35vw; transform: rotate(-15deg); animation-delay: -4s; opacity: .55; }
+
+.intro-content {
+  position: relative; z-index: 1; width: min(460px, calc(100vw - 40px));
+  padding: 30px 16px; text-align: center;
+  display: flex; flex-direction: column; align-items: center;
+}
+.intro-mark { width: 74px; height: 56px; stroke-width: 1.1; filter: drop-shadow(0 0 15px rgba(91,156,255,.5)); }
+.intro-eyebrow, .intro-footer {
+  font: 10px var(--mono); letter-spacing: .28em; color: #88a8d4;
+}
+.intro-eyebrow { margin: 28px 0 7px; }
+.intro-content h1 {
+  margin: 0; font-size: clamp(52px, 9vw, 82px); font-weight: 600;
+  letter-spacing: -.065em; line-height: 1.08; color: #f2f5fc;
+  text-shadow: 0 8px 46px rgba(34,93,190,.3);
+}
+.intro-tagline { margin: 13px 0 35px; color: #aebbd1; font-size: 15px; letter-spacing: .01em; }
+.intro-progress { width: min(240px, 70vw); height: 2px; overflow: hidden; background: rgba(124,158,210,.2); border-radius: 2px; }
+.intro-progress span {
+  display: block; height: 100%; width: 38%; background: var(--accent);
+  box-shadow: 0 0 12px var(--accent); animation: intro-loading 1.4s ease-in-out infinite;
+}
+.intro-progress .intro-progress-ready { width: 100%; animation: none; }
+.intro-status { margin: 12px 0 26px; color: #8fa2bf; font: 11px var(--mono); letter-spacing: .04em; }
+.intro-actions { display: flex; justify-content: center; gap: 9px; flex-wrap: wrap; }
+.intro-actions .btn { min-height: 40px; padding: 9px 16px; font-size: 13px; }
+.intro-actions .btn-primary { justify-content: space-between; gap: 22px; }
+.intro-sound-note { margin: 14px 0 0; color: #65758f; font-size: 11px; }
+.intro-footer { position: absolute; bottom: 28px; left: 0; right: 0; text-align: center; opacity: .55; }
+
+@keyframes intro-grid-drift { to { background-position: 0 76px, 76px 0; } }
+@keyframes intro-breathe { 50% { opacity: .55; transform: translate(-50%, -50%) scale(1.12); } }
+@keyframes intro-drift { 50% { transform: translate(-50%, -50%) rotate(-12deg) skewY(6deg) translateY(-12px); } }
+@keyframes intro-streak { to { left: 110vw; } }
+@keyframes intro-loading { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-grid, .intro-halo, .intro-frame, .intro-streak, .intro-progress span { animation: none; }
+  .intro-screen { transition-duration: .01ms; }
+}

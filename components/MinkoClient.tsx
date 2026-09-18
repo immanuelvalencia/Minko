@@ -1,6 +1,34 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
+function playOpeningTone() {
+  if (!window.AudioContext) return;
+  const audio = new AudioContext();
+  void audio.resume().then(() => {
+    const start = audio.currentTime;
+    const master = audio.createGain();
+    master.gain.value = 0.12;
+    master.connect(audio.destination);
+
+    [220, 329.63, 440].forEach((frequency, index) => {
+      const at = start + index * 0.16;
+      const oscillator = audio.createOscillator();
+      const envelope = audio.createGain();
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(frequency, at);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.015, at + 0.7);
+      envelope.gain.setValueAtTime(0.0001, at);
+      envelope.gain.exponentialRampToValueAtTime(0.25, at + 0.08);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, at + 0.9);
+      oscillator.connect(envelope).connect(master);
+      oscillator.start(at);
+      oscillator.stop(at + 0.92);
+    });
+    window.setTimeout(() => void audio.close(), 1600);
+  }).catch(() => void audio.close());
+}
 
 /**
  * The viewer touches WebGL, canvas and MediaRecorder, none of which exist on the
@@ -19,5 +47,75 @@ const Minko = dynamic(() => import('./Minko'), {
 });
 
 export default function MinkoClient() {
-  return <Minko />;
+  const [appReady, setAppReady] = useState(false);
+  const [introReady, setIntroReady] = useState(false);
+  const [slowLoad, setSlowLoad] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const exitTimer = useRef<number | null>(null);
+  const onReady = useCallback(() => setAppReady(true), []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setIntroReady(true), 1200);
+    const fallback = window.setTimeout(() => setSlowLoad(true), 8000);
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(fallback);
+      if (exitTimer.current !== null) window.clearTimeout(exitTimer.current);
+    };
+  }, []);
+
+  const canEnter = introReady && (appReady || slowLoad);
+
+  const enter = (withSound: boolean) => {
+    if (!canEnter || leaving) return;
+    if (withSound) playOpeningTone();
+    setLeaving(true);
+    exitTimer.current = window.setTimeout(() => setEntered(true), 520);
+  };
+
+  return (
+    <div className="minko-root">
+      <div className="minko-shell" inert={!entered} aria-hidden={!entered}>
+        <Minko onReady={onReady} />
+      </div>
+      {!entered && (
+        <div className={`intro-screen${leaving ? ' intro-leaving' : ''}`} role="dialog" aria-modal="true" aria-labelledby="introTitle">
+          <div className="intro-ambient" aria-hidden="true">
+            <div className="intro-grid" />
+            <div className="intro-halo" />
+            <div className="intro-frame intro-frame-back" />
+            <div className="intro-frame intro-frame-mid" />
+            <div className="intro-frame intro-frame-front" />
+            <span className="intro-streak intro-streak-one" />
+            <span className="intro-streak intro-streak-two" />
+          </div>
+          <div className="intro-content">
+            <svg className="intro-mark brand-mark" viewBox="0 0 32 24" aria-hidden="true">
+              <rect x="1" y="5" width="17" height="12" rx="1.5" opacity=".28" />
+              <rect x="5" y="6.5" width="17" height="12" rx="1.5" opacity=".55" />
+              <rect x="9" y="8" width="17" height="12" rx="1.5" />
+            </svg>
+            <p className="intro-eyebrow">WIDTH × HEIGHT × TIME</p>
+            <h1 id="introTitle">Minko</h1>
+            <p className="intro-tagline">See motion beyond the frame.</p>
+            <div className="intro-progress" aria-label={canEnter ? 'Ready' : 'Loading Minko'}>
+              <span className={canEnter ? 'intro-progress-ready' : ''} />
+            </div>
+            <p className="intro-status" aria-live="polite">{appReady && introReady ? 'Ready to explore' : slowLoad ? 'Taking longer than expected — you can continue' : 'Preparing your workspace…'}</p>
+            <div className="intro-actions">
+              <button className="btn btn-primary" type="button" disabled={!canEnter || leaving} onClick={() => enter(true)}>
+                Enter with sound <span aria-hidden="true">↗</span>
+              </button>
+              <button className="btn btn-ghost" type="button" disabled={!canEnter || leaving} onClick={() => enter(false)}>
+                Continue quietly
+              </button>
+            </div>
+            <p className="intro-sound-note">A short opening tone; playback stays quiet.</p>
+          </div>
+          <p className="intro-footer">A SPATIAL VIEW OF TIME</p>
+        </div>
+      )}
+    </div>
+  );
 }

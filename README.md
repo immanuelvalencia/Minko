@@ -29,6 +29,12 @@ The opening screen includes two small built-in MP4 demos in `public/demos/`:
 **Kinetic Bounce** and **DVD Corner Chase**. They are loaded locally by the app and
 provide quick motion-path examples for evaluating the frame-stack view.
 
+## Opening screen
+
+Minko opens with a short animated space-time scene while the viewer initializes.
+Choose **Enter with sound** for a brief synthesized opening cue, or **Continue quietly**.
+Browsers require a click before playing audio; the cue does not continue during video playback.
+
 ## Deploying
 
 Vercel detects Next.js with no configuration — framework preset, build command and

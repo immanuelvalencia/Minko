@@ -86,7 +86,7 @@ function loadSavedSettings(): Record<string, any> {
 
 /* ------------------------------------------------------------- component */
 
-export default function Minko() {
+export default function Minko({ onReady }: { onReady?: () => void }) {
   const savedSettings = useMemo(loadSavedSettings, []);
   // The canvas is created imperatively inside the boot effect rather than
   // rendered by React. A WebGL context belongs to a canvas element for its
@@ -111,7 +111,6 @@ export default function Minko() {
   const abortRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
 
-  const [ready, setReady] = useState(false);
   const [clip, setClip] = useState<ClipInfo | null>(null);
   const [playing, setPlaying] = useState(false);
   const [playhead, setPlayhead] = useState(0);
@@ -213,7 +212,7 @@ export default function Minko() {
       });
     });
 
-    setReady(true);
+    onReady?.();
 
     return () => {
       stop();
@@ -225,7 +224,7 @@ export default function Minko() {
       canvas.remove();
       canvasRef.current = null;
     };
-  }, []);
+  }, [onReady]);
 
   /* --------------------------------------------------------- push settings */
 
@@ -1045,7 +1044,6 @@ export default function Minko() {
         )}
       </footer>}
 
-      {!ready && null}
     </div>
   );
 }
