@@ -1,8 +1,25 @@
+# dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# next
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# vercel
 .vercel/
+
+# env
 .env
-.env.local
+.env*.local
+
+# misc
 .DS_Store
 Thumbs.db
 *.log
+
+# local test media
 /samples/

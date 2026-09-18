@@ -589,3 +589,24 @@ body.cinema:not(.idle) .cinema-pill { opacity: 1; }
 @media (max-width: 720px) {
   .ex-row { grid-template-columns: 1fr; }
 }
+
+/* ---------- Next.js host ---------- */
+
+/* The canvas is created imperatively by the boot effect and lives in here, so
+   React never owns it and every mount gets a fresh WebGL context. */
+.canvas-host { position: absolute; inset: 0; }
+.canvas-host > canvas { display: block; width: 100%; height: 100%; }
+
+.boot {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; height: 100vh; height: 100dvh;
+  background: var(--bg); color: var(--fg-faint);
+  font-size: 12.5px;
+}
+.boot-mark {
+  width: 34px; height: 24px;
+  border: 1.4px solid var(--accent); border-radius: 3px;
+  opacity: .5;
+  animation: bootpulse 1.4s ease-in-out infinite;
+}
+@keyframes bootpulse { 0%, 100% { opacity: .25; } 50% { opacity: .7; } }
