@@ -1,5 +1,5 @@
-import FrameStackClient from '@/components/FrameStackClient';
+import MinkoClient from '@/components/MinkoClient';
 
 export default function Page() {
-  return <FrameStackClient />;
+  return <MinkoClient />;
 }

@@ -71,8 +71,8 @@ const DEMOS = [
 ];
 const EXPORT_ENABLED = false;
 
-const SETTINGS_KEY = 'minkow.viewer-settings.v1';
-const LEGACY_SETTINGS_KEYS = ['minko.viewer-settings.v1', 'framestack.viewer-settings.v1'];
+const SETTINGS_KEY = 'minko.viewer-settings.v1';
+const LEGACY_SETTINGS_KEYS = ['minkow.viewer-settings.v1', 'framestack.viewer-settings.v1'];
 
 function loadSavedSettings(): Record<string, any> {
   if (typeof window === 'undefined') return {};
@@ -86,7 +86,7 @@ function loadSavedSettings(): Record<string, any> {
 
 /* ------------------------------------------------------------- component */
 
-export default function FrameStack() {
+export default function Minko() {
   const savedSettings = useMemo(loadSavedSettings, []);
   // The canvas is created imperatively inside the boot effect rather than
   // rendered by React. A WebGL context belongs to a canvas element for its
@@ -168,7 +168,7 @@ export default function FrameStack() {
       setError({
         title: 'WebGL2 is not available in this browser.',
         detail:
-          'Minkow raymarches a 3D texture, which needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari.',
+          'Minko raymarches a 3D texture, which needs WebGL2. Try a recent Chrome, Edge, Firefox or Safari.',
       });
     }
 
@@ -608,8 +608,8 @@ export default function FrameStack() {
           onProgress: (p: { done: number; total: number }) => setExportProgress(p),
         });
 
-        const base = (probeRef.current.file?.name ?? 'minkow').replace(/\.[^.]+$/, '');
-        saveBlob(result.blob, `${base}-minkow.${extensionFor(result.mimeType)}`);
+        const base = (probeRef.current.file?.name ?? 'minko').replace(/\.[^.]+$/, '');
+        saveBlob(result.blob, `${base}-minko.${extensionFor(result.mimeType)}`);
         setExportStatus(`Saved ${result.width}×${result.height}, ${formatBytes(result.blob.size)}.`);
         setTimeout(() => setExportOpen(false), 1400);
       } catch (err: any) {
@@ -774,7 +774,7 @@ export default function FrameStack() {
             <rect x="9" y="8" width="17" height="12" rx="1.5" />
           </svg>
           <div className="brand-text">
-            <h1>Minkow</h1>
+            <h1>Minko</h1>
             <p>width × height × time</p>
           </div>
         </div>

@@ -124,10 +124,10 @@ export function AboutPane({ onClose }: AboutProps) {
     <div className="overlay about-pane" role="presentation" onMouseDown={onClose}>
       <section className="about-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" onMouseDown={(event) => event.stopPropagation()}>
         <button className="about-close" type="button" aria-label="Close about panel" onClick={onClose}>×</button>
-        <p className="about-kicker">ABOUT MINKOW</p>
+        <p className="about-kicker">ABOUT MINKO</p>
         <h2 id="aboutTitle">Explore motion as it unfolds through time.</h2>
         <p>
-          Minkow turns video into a navigable frame stack, making motion and change visible across time. Its name is inspired by Hermann Minkowski and the idea of seeing space and time together.
+          Minko turns video into a navigable frame stack, making motion and change visible across time. Its name is inspired by Hermann Minkowski and the idea of seeing space and time together.
         </p>
         <div className="about-credit" aria-label="Project attribution">
           <span className="about-label">DEVELOPED BY</span>

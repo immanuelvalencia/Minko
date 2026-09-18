@@ -8,16 +8,16 @@ import dynamic from 'next/dynamic';
  * Server Component, which is why this thin client wrapper exists rather than the
  * page importing the viewer directly.
  */
-const FrameStack = dynamic(() => import('./FrameStack'), {
+const Minko = dynamic(() => import('./Minko'), {
   ssr: false,
   loading: () => (
     <div className="boot">
       <div className="boot-mark" />
-      <p>Starting Minkow…</p>
+      <p>Starting Minko…</p>
     </div>
   ),
 });
 
-export default function FrameStackClient() {
-  return <FrameStack />;
+export default function MinkoClient() {
+  return <Minko />;
 }

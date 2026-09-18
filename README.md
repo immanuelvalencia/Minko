@@ -1,4 +1,4 @@
-# Minkow
+# Minko
 
 An interactive 3D video viewer inspired by Hermann Minkowski's space-time perspective.
 A clip is decoded into a single spatiotemporal frame stack — width and height are the
@@ -54,8 +54,8 @@ app/
   page.tsx            server component, renders the client wrapper
   globals.css
 components/
-  FrameStackClient.tsx  'use client' + dynamic(ssr:false) boundary
-  FrameStack.tsx        clip lifecycle, playback clock, engine refs
+  MinkoClient.tsx       'use client' + dynamic(ssr:false) boundary
+  Minko.tsx             clip lifecycle, playback clock, engine refs
   VolumePanel.tsx       generated from VOLUME_CONTROLS
   EffectsPanel.tsx      generated from EFFECTS
   ExportDialog.tsx
@@ -226,7 +226,7 @@ console.
 
 Phase 2 is persistence. Nothing is wired up yet; the seams are:
 
-- `loadFile` in `FrameStack.tsx` takes a `File`, and `probeVideo` only needs a
+- `loadFile` in `Minko.tsx` takes a `File`, and `probeVideo` only needs a
   `Blob`, so a clip fetched from storage drops straight in.
 - A route handler under `app/api/` is the place for anything needing the service
   role key or rate limiting — which, with no login, is the first thing you will
