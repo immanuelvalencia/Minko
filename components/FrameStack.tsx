@@ -92,6 +92,7 @@ export default function FrameStack() {
   // Viewer the first one's dead context. A fresh element each mount avoids it.
   const hostRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const sourceVideoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // The engine lives in refs: it runs its own loop and must not be rebuilt by a
@@ -130,6 +131,7 @@ export default function FrameStack() {
   const [showBorder, setShowBorder] = useState<boolean>(savedSettings.showBorder ?? true);
   const [loop, setLoop] = useState<boolean>(savedSettings.loop ?? false);
   const [playbackRate, setPlaybackRate] = useState<number>(savedSettings.playbackRate ?? 1);
+  const [showOriginal, setShowOriginal] = useState<boolean>(savedSettings.showOriginal ?? false);
   // A lower temporal cap keeps very long clips practical. Frames are sampled
   // evenly over the entire duration, never truncated.
   const [temporalLimit, setTemporalLimit] = useState<number>(savedSettings.temporalLimit ?? 0);
@@ -276,18 +278,30 @@ export default function FrameStack() {
     canvasRef.current?.classList.toggle('ready', !!clip);
   }, [clip]);
 
+  // Keep the original clip in lockstep with the frame stack. During normal
+  // playback the browser video clock runs smoothly; seeking corrects any drift.
+  useEffect(() => {
+    const video = sourceVideoRef.current;
+    if (!video || !clip || !showOriginal) return;
+    const targetTime = (playhead / Math.max(1, clip.depth - 1)) * clip.duration;
+    video.playbackRate = playbackRate;
+    if (Math.abs(video.currentTime - targetTime) > 0.12) video.currentTime = targetTime;
+    if (playing) video.play().catch(() => { /* muted preview can safely remain paused */ });
+    else video.pause();
+  }, [clip, playhead, playbackRate, playing, showOriginal]);
+
   // Preferences belong to this browser only; source video data remains local and
   // is never stored or uploaded. Saving after each change also survives a reload.
   useEffect(() => {
     try {
       window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({
         controls, effectState, effectsOn, followCamera, showBorder, loop,
-        playbackRate, temporalLimit,
+        playbackRate, temporalLimit, showOriginal,
       }));
     } catch {
       // Private browsing or a full storage quota should not break the viewer.
     }
-  }, [controls, effectState, effectsOn, followCamera, showBorder, loop, playbackRate, temporalLimit]);
+  }, [controls, effectState, effectsOn, followCamera, showBorder, loop, playbackRate, temporalLimit, showOriginal]);
 
   /* ------------------------------------------------------------- seeking */
 
@@ -717,6 +731,12 @@ export default function FrameStack() {
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => viewerRef.current?.resetCamera()}>
             Reset view
           </button>
+          <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => viewerRef.current?.frontCamera()}>
+            Front view
+          </button>
+          <button className={showOriginal ? 'btn btn-ghost is-active' : 'btn btn-ghost'} type="button" disabled={disabled} aria-pressed={showOriginal} onClick={() => setShowOriginal((value) => !value)}>
+            Side by side
+          </button>
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => setCinema(true)}>
             Cinema
           </button>
@@ -744,7 +764,7 @@ export default function FrameStack() {
       </header>
 
       <main
-        className="stage"
+        className={showOriginal && clip ? 'stage stage-split' : 'stage'}
         onDragEnter={(e) => {
           if (!e.dataTransfer?.types?.includes('Files')) return;
           e.preventDefault();
@@ -764,6 +784,24 @@ export default function FrameStack() {
         }}
       >
         <div className="canvas-host" ref={hostRef} />
+        {showOriginal && clip && (
+          <section className="source-preview" aria-label="Original video preview">
+            <span className="source-preview-label">Original video</span>
+            <video
+              ref={sourceVideoRef}
+              src={probeRef.current?.url}
+              muted
+              playsInline
+              preload="auto"
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget;
+                video.currentTime = (playRef.current.head / Math.max(1, clip.depth - 1)) * clip.duration;
+                video.playbackRate = playbackRate;
+                if (playRef.current.playing) video.play().catch(() => {});
+              }}
+            />
+          </section>
+        )}
 
         {!clip && !progress && (
           <Dropzone dragging={dragging} onChoose={() => fileInputRef.current?.click()} demos={DEMOS} onDemo={loadDemo} />

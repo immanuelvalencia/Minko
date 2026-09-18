@@ -642,6 +642,11 @@ body.cinema:not(.idle) .cinema-pill { opacity: 1; }
    React never owns it and every mount gets a fresh WebGL context. */
 .canvas-host { position: absolute; inset: 0; }
 .canvas-host > canvas { display: block; width: 100%; height: 100%; }
+.stage-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1px; background: var(--line-soft); }
+.stage-split .canvas-host { position: relative; inset: auto; background: #06070a; }
+.source-preview { position: relative; min-width: 0; background: #050609; display: grid; place-items: center; overflow: hidden; }
+.source-preview video { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.source-preview-label { position: absolute; z-index: 1; top: 10px; left: 11px; padding: 4px 7px; border: 1px solid var(--line); border-radius: var(--r-sm); background: rgba(7,8,12,.76); color: var(--fg-dim); font-family: var(--mono); font-size: 10px; pointer-events: none; }
 
 .boot {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
