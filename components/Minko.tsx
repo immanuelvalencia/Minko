@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Viewer } from '@/lib/viewer.js';
@@ -28,6 +29,7 @@ import VolumePanel from './VolumePanel';
 import EffectsPanel from './EffectsPanel';
 import ExportDialog, { type ExportOptions } from './ExportDialog';
 import { Dropzone, UploadDialog, ProgressPane, ErrorPane, Notice, AboutPane } from './Overlays';
+import BrandMark from './BrandMark';
 
 /* --------------------------------------------------------------- helpers */
 
@@ -800,17 +802,13 @@ export default function Minko({ onReady }: { onReady?: () => void }) {
   return (
     <div id="app">
       <header className="topbar">
-        <div className="brand">
-          <svg className="brand-mark" viewBox="0 0 32 24" aria-hidden="true">
-            <rect x="1" y="5" width="17" height="12" rx="1.5" opacity=".28" />
-            <rect x="5" y="6.5" width="17" height="12" rx="1.5" opacity=".55" />
-            <rect x="9" y="8" width="17" height="12" rx="1.5" />
-          </svg>
+        <Link href="/" className="brand" aria-label="Minko website home">
+          <BrandMark />
           <div className="brand-text">
             <h1>Minko</h1>
             <p>width × height × time</p>
           </div>
-        </div>
+        </Link>
 
         <div className="topbar-actions">
           {clip && <span className="clip-meta">{metaLine}</span>}

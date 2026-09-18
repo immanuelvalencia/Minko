@@ -62,7 +62,8 @@ html, body {
   z-index: 5;
 }
 
-.brand { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 11px; min-width: 0; color: inherit; text-decoration: none; }
+.brand:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 3px; }
 
 .brand-mark {
   width: 30px; height: 23px; flex: none;
@@ -329,6 +330,8 @@ html, body {
 .about-site span:first-child { display: grid; gap: 2px; font-size: 13px; }
 .about-site small { color: var(--fg-faint); font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .1em; }
 .about-site > span:last-child { color: var(--accent); font-size: 19px; }
+.about-more { display: inline-flex; align-items: center; gap: 8px; margin-top: 15px; color: var(--accent-hot); font-size: 12px; text-decoration: none; }
+.about-more:hover { color: #fff; }
 .about-close { position: absolute; top: 10px; right: 12px; border: 0; background: transparent; color: var(--fg-faint); font-size: 24px; line-height: 1; cursor: pointer; }
 .about-close:hover { color: var(--fg); }
 
@@ -783,4 +786,32 @@ body.cinema:not(.idle) .cinema-pill { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .intro-grid, .intro-halo, .intro-frame, .intro-streak, .intro-progress span { animation: none; }
   .intro-screen { transition-duration: .01ms; }
+}
+
+/* Keep the fullscreen viewer usable on narrow touch screens. */
+@media (max-width: 720px) {
+  #app { width: 100%; min-width: 0; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .topbar { align-items: stretch; flex-direction: column; gap: 8px; padding: 8px 10px; }
+  .topbar .brand { align-self: flex-start; }
+  .topbar-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: 100%; gap: 5px; }
+  .topbar-actions .btn { min-width: 0; justify-content: center; padding: 6px 4px; font-size: 10px; }
+  .topbar-actions .btn:last-child { grid-column: 1 / -1; }
+  .stage { min-width: 0; }
+  .dropzone { align-items: flex-start; overflow-y: auto; padding: 10px; }
+  .dz-card { width: 100%; max-width: 460px; margin: auto; padding: 16px 13px; }
+  .dz-art { width: 64px; height: 43px; margin-bottom: 6px; }
+  .dz-card h2 { margin-bottom: 5px; font-size: 15px; }
+  .dz-card p { margin-bottom: 11px; font-size: 11px; line-height: 1.45; }
+  .demo-area { margin-top: 12px; padding-top: 10px; }
+  .demo-list { gap: 5px; }
+  .demo-card { padding: 8px; }
+  .dz-hint { margin-top: 9px !important; font-size: 9px !important; }
+  .upload-pane, .about-pane { align-items: flex-start; overflow-y: auto; padding: 8px; }
+  .upload-card, .about-card { width: 100%; max-height: none; padding: 19px 17px; }
+  .controls { max-height: 38dvh; overflow-y: auto; padding: 9px 10px 11px; gap: 8px; }
+  .transport { flex-wrap: wrap; gap: 6px; }
+  .scrub { order: 1; flex: 1 0 100%; }
+  .readout { order: 2; width: 100%; justify-content: center; }
+  .volume-groups, .effect-groups { grid-template-columns: 1fr; }
+  .hud { max-width: calc(100% - 20px); overflow: hidden; white-space: nowrap; font-size: 9px; }
 }

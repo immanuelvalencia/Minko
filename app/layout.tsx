@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import './site.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://minko-viewer.vercel.app'),
   title: 'Minko',
   description:
     'Interactive 3D video viewer — a clip becomes one frame stack, with width and height the picture and depth time.',

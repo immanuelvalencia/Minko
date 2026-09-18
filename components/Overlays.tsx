@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useRef, useState } from 'react';
 
 type Demo = { id: string; title: string; description: string };
@@ -219,6 +220,7 @@ export function AboutPane({ onClose }: AboutProps) {
           <span><small>WEBSITE</small>immanuelvalencia.dev</span>
           <span aria-hidden="true">↗</span>
         </a>
+        <Link className="about-more" href="/about">More about the creator <span aria-hidden="true">→</span></Link>
       </section>
     </div>
   );

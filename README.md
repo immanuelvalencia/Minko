@@ -1,5 +1,10 @@
 # Minko
 
+The public website lives at `/`, with an About page at `/about` and the interactive
+viewer at `/app`. All navigation between them uses paths on the same domain. The
+viewer logo returns to the website. The website includes illustrated explanations
+of the frame stack and previews of the bundled demo videos.
+
 An interactive 3D video viewer inspired by Hermann Minkowski's space-time perspective.
 A clip is decoded into a single spatiotemporal frame stack — width and height are the
 picture, depth is time — and drawn as one solid
@@ -57,9 +62,15 @@ everything still works locally.
 ```
 app/
   layout.tsx          document shell and metadata
-  page.tsx            server component, renders the client wrapper
-  globals.css
+  page.tsx            public website
+  about/page.tsx      about the project and its developer
+  app/page.tsx        interactive viewer
+  globals.css         viewer styling
+  site.css            responsive website styling
 components/
+  BrandMark.tsx       shared layered-frame logo
+  SiteArtwork.tsx     illustrated frame-stack diagrams
+  SiteShell.tsx       website navigation and footer
   MinkoClient.tsx       'use client' + dynamic(ssr:false) boundary
   Minko.tsx             clip lifecycle, playback clock, engine refs
   VolumePanel.tsx       generated from VOLUME_CONTROLS

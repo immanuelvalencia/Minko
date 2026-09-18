@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import BrandMark from './BrandMark';
 
 function playOpeningTone() {
   if (!window.AudioContext) return;
@@ -105,11 +106,7 @@ export default function MinkoClient() {
             <span className="intro-streak intro-streak-two" />
           </div>
           <div className="intro-content">
-            <svg className="intro-mark brand-mark" viewBox="0 0 32 24" aria-hidden="true">
-              <rect x="1" y="5" width="17" height="12" rx="1.5" opacity=".28" />
-              <rect x="5" y="6.5" width="17" height="12" rx="1.5" opacity=".55" />
-              <rect x="9" y="8" width="17" height="12" rx="1.5" />
-            </svg>
+            <BrandMark className="intro-mark brand-mark" />
             <p className="intro-eyebrow">WIDTH × HEIGHT × TIME</p>
             <h1 id="introTitle">Minko</h1>
             <p className="intro-tagline">See motion beyond the frame.</p>
