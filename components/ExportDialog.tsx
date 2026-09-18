@@ -5,14 +5,15 @@ import { CAMERA_MOVES, ASPECTS, outputSize, pickMimeType, extensionFor } from '@
 
 export type ExportOptions = {
   move: string;
-  seconds: number;
   fps: number;
   height: number;
   aspectRatio: number | null;
+  cinematic: boolean;
 };
 
 type Props = {
   sourceAspect: number;
+  duration: number;
   busy: boolean;
   progress: { done: number; total: number } | null;
   statusText: string;
@@ -23,6 +24,7 @@ type Props = {
 
 export default function ExportDialog({
   sourceAspect,
+  duration,
   busy,
   progress,
   statusText,
@@ -31,15 +33,15 @@ export default function ExportDialog({
   onClose,
 }: Props) {
   const [moveId, setMoveId] = useState<string>(CAMERA_MOVES[0].id);
-  const [seconds, setSeconds] = useState(15);
   const [fps, setFps] = useState(24);
   const [height, setHeight] = useState(1080);
   const [aspectId, setAspectId] = useState('wide');
+  const [cinematic, setCinematic] = useState(true);
 
   const mimeType = useMemo(() => pickMimeType(), []);
   const aspect = ASPECTS.find((a: { id: string }) => a.id === aspectId) ?? ASPECTS[0];
   const size = outputSize(height, aspect.ratio, sourceAspect);
-  const frames = Math.round(seconds * fps);
+  const frames = Math.max(2, Math.round(duration * fps));
   const hint = CAMERA_MOVES.find((m: { id: string }) => m.id === moveId)?.hint ?? '';
 
   return (
@@ -80,14 +82,10 @@ export default function ExportDialog({
             <p className="ex-hint">{hint}</p>
 
             <div className="ex-row">
-              <label className="ex-field">
+              <div className="ex-field">
                 <span>Length</span>
-                <select value={seconds} onChange={(e) => setSeconds(Number(e.target.value))}>
-                  {[6, 10, 15, 24, 40].map((s) => (
-                    <option key={s} value={s}>{`${s} seconds`}</option>
-                  ))}
-                </select>
-              </label>
+                <output className="ex-static">{duration.toFixed(duration < 10 ? 1 : 0)} seconds (source video)</output>
+              </div>
               <label className="ex-field">
                 <span>Frame rate</span>
                 <select value={fps} onChange={(e) => setFps(Number(e.target.value))}>
@@ -97,6 +95,16 @@ export default function ExportDialog({
                 </select>
               </label>
             </div>
+
+            <label className="ex-check">
+              <input
+                type="checkbox"
+                checked={cinematic}
+                onChange={(e) => setCinematic(e.target.checked)}
+              />
+              <span>Apply cinematic effects</span>
+            </label>
+            <p className="ex-hint">Adds depth haze, motion glow, speed streaks, chromatic separation, vignette and fine film grain for this export only.</p>
 
             <div className="ex-row">
               <label className="ex-field">
@@ -137,7 +145,7 @@ export default function ExportDialog({
               type="button"
               disabled={!mimeType}
               onClick={() =>
-                onStart({ move: moveId, seconds, fps, height, aspectRatio: aspect.ratio })
+                onStart({ move: moveId, fps, height, aspectRatio: aspect.ratio, cinematic })
               }
             >
               Export

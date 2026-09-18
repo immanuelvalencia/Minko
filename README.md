@@ -1,7 +1,7 @@
 # FrameStack
 
 An interactive 3D video viewer. A clip is decoded into a single spatiotemporal
-volume — width and height are the picture, depth is time — and drawn as one solid
+frame stack — width and height are the picture, depth is time — and drawn as one solid
 block you can orbit, scrub and move through.
 
 There are no discrete frame planes. The whole clip is uploaded as a 3D texture and
@@ -21,6 +21,12 @@ npm run dev        # http://localhost:3000
 
 `npm run build` for a production build, `npm run typecheck` for types only.
 Requires Node 20.9+.
+
+## Included demos
+
+The opening screen includes two small built-in MP4 demos in `public/demos/`:
+**Kinetic Bounce** and **DVD Corner Chase**. They are loaded locally by the app and
+provide quick motion-path examples for evaluating the frame-stack view.
 
 ## Deploying
 
@@ -99,11 +105,11 @@ frame rather than whatever the compositor happened to present. Budget roughly
 
 ## The memory budget
 
-The volume is capped at **256 MB** (`VOLUME_BUDGET_BYTES` in `components/config.ts`).
+The frame stack is capped at **256 MB** (`VOLUME_BUDGET_BYTES` in `components/config.ts`).
 Depth is fixed by the clip — one slice per frame — so slice resolution absorbs the
 budget:
 
-| frames | slice size | volume |
+| frames | slice size | frame stack |
 |--------|-----------|--------|
 | 120    | 640×360 (source) | 111 MB |
 | 1,200  | 315×177   | 268 MB |
@@ -113,6 +119,11 @@ Slices are never upscaled past the source. `MAX_3D_TEXTURE_SIZE` (2,048 on most
 GPUs) caps the frame count; beyond that, slices are sampled evenly across the whole
 timeline rather than truncating it. Whenever either compromise applies, the app says
 so in a notice bar rather than quietly degrading.
+
+For longer clips, choose **Long video** or **Very long** before opening the file.
+Those modes use 1,024 or 512 evenly spaced temporal samples, respectively. They
+retain the complete video duration while reducing decoding time and memory pressure;
+they do not preserve every source frame.
 
 ## The shader
 
@@ -165,16 +176,20 @@ cost nothing while switched off.
 **C** hides the chrome and leaves the viewer full-bleed; the cursor and the restore
 pill fade out after a few still seconds. **Esc** or **C** brings it back.
 
-**E**, or the Export button, records a cinematic pass to a video file. Four camera
-moves: fly through along the time axis, slow orbit, drift in, or hold the current
-view. Length, frame rate, resolution and aspect (including 2.39:1) are selectable.
+**E**, or the Export button, records a cinematic pass to an MP4 video file. Four camera
+moves are available: fly through along the time axis, slow orbit, drift in, or hold
+the current view. Export length always follows the loaded source video, while frame
+rate, resolution and aspect (including 2.39:1) remain selectable. The cinematic
+effects switch adds depth haze, motion glow, speed streaks, chromatic separation,
+vignette and fine grain for that exported pass only.
 
-Capture is frame-accurate, not real-time: `captureStream(0)` yields a frame only
-when asked, so each output frame is rendered, pushed, and only then is the next one
-started. A slow machine makes a slow export rather than a stuttering video. The
-renderer is switched to the exact output size for the duration and restored
-afterwards, along with the camera. Output is WebM (VP9 where available); Safari may
-fall back to MP4 or refuse, in which case the app says so.
+Capture is frame-accurate: the canvas is captured at the selected frame rate and
+the renderer advances on the same media-clock cadence so the MP4 timeline matches
+the source duration. The renderer is switched to the exact output size for
+the duration and restored
+afterwards, along with the camera and interactive effect settings. MP4 encoding
+requires a browser with MediaRecorder MP4 support; the app reports clearly when it
+is unavailable instead of downloading a mislabeled file.
 
 ## Controls
 
@@ -196,10 +211,10 @@ march works in the box's own unit space.
 
 ## Status
 
-Verified in a real WebGL2 context: both shaders compile and link, the volume renders
-with every effect switched on, and a marker volume lands the right way up and the
+Verified in a real WebGL2 context: both shaders compile and link, the frame stack renders
+with every effect switched on, and a marker stack lands the right way up and the
 right way round on screen. The memory-budget maths produces the layouts above, and
-extraction decodes a real clip to a correct volume (frame rate detected exactly,
+extraction decodes a real clip to a correct frame stack (frame rate detected exactly,
 slices distinct, timestamps ascending). The TypeScript components typecheck.
 
 Not yet run end-to-end in a browser: the environment this was built in has no route
@@ -237,7 +252,7 @@ create policy "anon insert" on videos for insert to anon with check (true);
 
 Storage: one public bucket, objects at `{id}/source.<ext>`. Frames stay client-side
 — uploading them would mean thousands of objects per clip for no gain, since the
-volume has to be rebuilt on the GPU anyway.
+frame stack has to be rebuilt on the GPU anyway.
 
 The anon key is publishable by design, so `NEXT_PUBLIC_SUPABASE_URL` and
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` are fine as public env vars guarded by RLS. Anything

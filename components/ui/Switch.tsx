@@ -11,7 +11,7 @@ type Props = {
 
 export default function Switch({ id, checked, disabled, small, ariaLabel, onChange }: Props) {
   return (
-    <span className={small ? 'switch switch-sm' : 'switch'}>
+    <label className={small ? 'switch switch-sm' : 'switch'}>
       <input
         id={id}
         type="checkbox"
@@ -23,6 +23,6 @@ export default function Switch({ id, checked, disabled, small, ariaLabel, onChan
       <span className="switch-track">
         <span className="switch-thumb" />
       </span>
-    </span>
+    </label>
   );
 }

@@ -27,7 +27,7 @@ import {
 import VolumePanel from './VolumePanel';
 import EffectsPanel from './EffectsPanel';
 import ExportDialog, { type ExportOptions } from './ExportDialog';
-import { Dropzone, ProgressPane, ErrorPane, Notice } from './Overlays';
+import { Dropzone, ProgressPane, ErrorPane, Notice, AboutPane } from './Overlays';
 
 /* --------------------------------------------------------------- helpers */
 
@@ -65,9 +65,27 @@ type ClipInfo = {
 
 type ProgressState = { title: string; detail: string; ratio: number | null; count: string };
 
+const DEMOS = [
+  { id: 'kinetic-bounce', title: 'Kinetic Bounce', description: 'A ball tracing motion through space.' },
+  { id: 'dvd-corner-chase', title: 'DVD Corner Chase', description: 'A classic screensaver path study.' },
+];
+
+const SETTINGS_KEY = 'framestack.viewer-settings.v1';
+
+function loadSavedSettings(): Record<string, any> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(SETTINGS_KEY) || '{}');
+    return saved && typeof saved === 'object' ? saved : {};
+  } catch {
+    return {};
+  }
+}
+
 /* ------------------------------------------------------------- component */
 
 export default function FrameStack() {
+  const savedSettings = useMemo(loadSavedSettings, []);
   // The canvas is created imperatively inside the boot effect rather than
   // rendered by React. A WebGL context belongs to a canvas element for its
   // lifetime, so StrictMode's double mount would otherwise hand the second
@@ -84,6 +102,7 @@ export default function FrameStack() {
   const probeRef = useRef<any>(null);
   const frameTimesRef = useRef<Float64Array | null>(null);
   const playRef = useRef({ playing: false, head: 0, rate: 1 });
+  const loopRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const busyRef = useRef(false);
 
@@ -94,16 +113,26 @@ export default function FrameStack() {
   const [progress, setProgress] = useState<ProgressState | null>(null);
   const [error, setError] = useState<{ title: string; detail: string } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [tab, setTab] = useState<'volume' | 'effects'>('volume');
   const [cinema, setCinema] = useState(false);
   const [idle, setIdle] = useState(false);
   const [hud, setHud] = useState({ fps: 0 });
 
-  const [controls, setControls] = useState<Record<VolumeControl['key'], number>>({ ...DEFAULT_CONTROLS });
-  const [effectState, setEffectState] = useState<Record<string, EffectState>>(initialEffectState);
-  const [effectsOn, setEffectsOn] = useState(true);
-  const [followCamera, setFollowCamera] = useState(true);
+  const [controls, setControls] = useState<Record<VolumeControl['key'], number>>(() => ({ ...DEFAULT_CONTROLS, ...savedSettings.controls }));
+  const [effectState, setEffectState] = useState<Record<string, EffectState>>(() => {
+    const defaults = initialEffectState();
+    return Object.fromEntries(Object.entries(defaults).map(([id, value]) => [id, { ...value, ...(savedSettings.effectState?.[id] || {}) }]));
+  });
+  const [effectsOn, setEffectsOn] = useState<boolean>(savedSettings.effectsOn ?? true);
+  const [followCamera, setFollowCamera] = useState<boolean>(savedSettings.followCamera ?? true);
+  const [showBorder, setShowBorder] = useState<boolean>(savedSettings.showBorder ?? true);
+  const [loop, setLoop] = useState<boolean>(savedSettings.loop ?? false);
+  const [playbackRate, setPlaybackRate] = useState<number>(savedSettings.playbackRate ?? 1);
+  // A lower temporal cap keeps very long clips practical. Frames are sampled
+  // evenly over the entire duration, never truncated.
+  const [temporalLimit, setTemporalLimit] = useState<number>(savedSettings.temporalLimit ?? 0);
 
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -144,9 +173,13 @@ export default function FrameStack() {
         if (state.playing) {
           state.head += dt * state.rate;
           if (state.head >= block.depth - 1) {
-            state.head = block.depth - 1;
-            state.playing = false;
-            setPlaying(false);
+            if (loopRef.current) {
+              state.head = 0;
+            } else {
+              state.head = block.depth - 1;
+              state.playing = false;
+              setPlaying(false);
+            }
           }
           block.setPlayhead(state.head);
           viewer.setFocusZ(block.zOf(state.head));
@@ -226,8 +259,35 @@ export default function FrameStack() {
   }, [followCamera]);
 
   useEffect(() => {
+    loopRef.current = loop;
+  }, [loop]);
+
+  useEffect(() => {
+    const block = blockRef.current;
+    const probe = probeRef.current;
+    if (block && probe) playRef.current.rate = (block.depth / Math.max(0.001, probe.duration)) * playbackRate;
+  }, [clip, playbackRate]);
+
+  useEffect(() => {
+    blockRef.current?.setEdgesVisible(showBorder);
+  }, [showBorder, clip]);
+
+  useEffect(() => {
     canvasRef.current?.classList.toggle('ready', !!clip);
   }, [clip]);
+
+  // Preferences belong to this browser only; source video data remains local and
+  // is never stored or uploaded. Saving after each change also survives a reload.
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+        controls, effectState, effectsOn, followCamera, showBorder, loop,
+        playbackRate, temporalLimit,
+      }));
+    } catch {
+      // Private browsing or a full storage quota should not break the viewer.
+    }
+  }, [controls, effectState, effectsOn, followCamera, showBorder, loop, playbackRate, temporalLimit]);
 
   /* ------------------------------------------------------------- seeking */
 
@@ -270,6 +330,11 @@ export default function FrameStack() {
     [pause, seek]
   );
 
+  const jumpTo = useCallback((frame: number) => {
+    pause();
+    seek(frame);
+  }, [pause, seek]);
+
   /* ------------------------------------------------------------- loading */
 
   const loadFile = useCallback(async (file: File) => {
@@ -302,23 +367,27 @@ export default function FrameStack() {
       const viewer = viewerRef.current;
       const gl = viewer.renderer.getContext();
       const maxDim = gl.getParameter(gl.MAX_3D_TEXTURE_SIZE) || 2048;
+      const maxDepth = temporalLimit > 0 ? Math.min(maxDim, temporalLimit) : maxDim;
 
-      const layout = volumeLayout(probe.width, probe.height, probe.totalFrames, VOLUME_BUDGET_BYTES, maxDim);
+      const layout = volumeLayout(probe.width, probe.height, probe.totalFrames, VOLUME_BUDGET_BYTES, maxDim, maxDepth);
 
       setProgress({
-        title: 'Building the volume',
+        title: 'Building the frame stack',
         detail: `${layout.depth.toLocaleString()} slices at ${layout.width}×${layout.height} · ${formatBytes(layout.bytes)}`,
         ratio: 0,
         count: `0 / ${layout.depth.toLocaleString()}`,
       });
 
-      const result = await extractVolume(probe, {
+      // The renderer modules are intentionally plain JavaScript, so their
+      // structured result is not inferred across the TS boundary.
+      const result: any = await extractVolume(probe, {
         budgetBytes: VOLUME_BUDGET_BYTES,
         maxDim,
+        maxDepth,
         signal,
         onProgress: ({ done, total, etaSeconds }: { done: number; total: number; etaSeconds: number }) =>
           setProgress({
-            title: 'Building the volume',
+            title: 'Building the frame stack',
             detail: `${layout.width}×${layout.height} slices · ${formatBytes(layout.bytes)} · about ${formatDuration(etaSeconds)} left`,
             ratio: done / total,
             count: `${done.toLocaleString()} / ${total.toLocaleString()}`,
@@ -366,12 +435,14 @@ export default function FrameStack() {
       const notes: string[] = [];
       if (result.layout.sampled) {
         notes.push(
-          `${probe.totalFrames.toLocaleString()} frames exceed this GPU's 3D texture limit, so the block holds ${result.layout.depth.toLocaleString()} slices sampled evenly across the clip`
+          temporalLimit > 0
+            ? `${probe.totalFrames.toLocaleString()} source frames were reduced to ${result.layout.depth.toLocaleString()} evenly spaced slices for the selected long-video mode`
+            : `${probe.totalFrames.toLocaleString()} frames exceed this GPU's 3D texture limit, so the block holds ${result.layout.depth.toLocaleString()} slices sampled evenly across the clip`
         );
       }
       if (result.layout.downscaled) {
         notes.push(
-          `slices are ${result.layout.width}×${result.layout.height} rather than the source ${probe.width}×${probe.height}, to keep the volume inside ${formatBytes(VOLUME_BUDGET_BYTES)}`
+          `slices are ${result.layout.width}×${result.layout.height} rather than the source ${probe.width}×${probe.height}, to keep the frame stack inside ${formatBytes(VOLUME_BUDGET_BYTES)}`
         );
       }
       if (notes.length) setNotice(`${notes.join('; ')}.`);
@@ -390,7 +461,20 @@ export default function FrameStack() {
       busyRef.current = false;
       abortRef.current = null;
     }
-  }, [pause]);
+  }, [pause, temporalLimit]);
+
+  const loadDemo = useCallback(async (id: string) => {
+    const demo = DEMOS.find((item) => item.id === id);
+    if (!demo) return;
+    try {
+      const response = await fetch(`/demos/${demo.id}.mp4`);
+      if (!response.ok) throw new Error(`Demo could not be loaded (${response.status}).`);
+      const blob = await response.blob();
+      await loadFile(new File([blob], `${demo.title}.mp4`, { type: 'video/mp4' }));
+    } catch (err: any) {
+      setError({ title: 'Could not load the demo video.', detail: String(err?.message ?? err) });
+    }
+  }, [loadFile]);
 
   /* -------------------------------------------------------------- export */
 
@@ -408,13 +492,42 @@ export default function FrameStack() {
       const controller = new AbortController();
       abortRef.current = controller;
       const before = block.playhead;
+      let originalPost: any = null;
+      let originalVolume: any = null;
 
       try {
+        const sourceDuration = probeRef.current.duration;
+        const effects = effectsRef.current;
+        originalPost = effects ? { ...effects.settings, enabled: effects.enabled } : null;
+        originalVolume = block.settings
+          ? { haze: block.settings.haze, motionGlow: block.settings.motionGlow, motionReveal: block.settings.motionReveal }
+          : null;
+
+        if (options.cinematic) {
+          // This treatment is export-only: it makes the chosen camera move read
+          // as a film pass without changing the interactive viewer controls.
+          block.set({ haze: Math.max(Number(block.settings?.haze) || 0, 0.42), motionGlow: Math.max(Number(block.settings?.motionGlow) || 0, 0.48) });
+          effects?.set({
+            streak: Math.max(effects.settings.streak, 0.28),
+            chroma: Math.max(effects.settings.chroma, 0.16),
+            vignette: Math.max(effects.settings.vignette, 0.56),
+            grain: Math.max(effects.settings.grain, 0.14),
+          });
+          if (effects) effects.enabled = true;
+        }
+        // The watermark is part of the encoded frame, never a DOM overlay, so it
+        // appears reliably in the downloaded MP4 at every chosen resolution.
+        if (effects) {
+          effects.enabled = true;
+          effects.set({ watermark: 1 });
+        }
+
         const result = await exportVideo({
           viewer,
           block,
           setPlayhead: (frame: number) => block.setPlayhead(frame),
           ...options,
+          seconds: sourceDuration,
           sourceAspect: probeRef.current.width / probeRef.current.height,
           signal: controller.signal,
           onProgress: (p: { done: number; total: number }) => setExportProgress(p),
@@ -435,6 +548,19 @@ export default function FrameStack() {
           setError({ title: 'The export failed.', detail: String(err?.message ?? err) });
         }
       } finally {
+        // Restore the interactive look even if recording or encoding fails.
+        const effects = effectsRef.current;
+        // exportVideo restores the camera itself; the React effects state remains
+        // the authority after this one-off export treatment.
+        if (effects) {
+          const post: Record<string, number> = {};
+          for (const fx of EFFECTS) {
+            if (fx.target === 'post') post[fx.key] = effectsOn && effectState[fx.id].on ? effectState[fx.id].amount : 0;
+          }
+          effects.enabled = effectsOn;
+          effects.set({ ...post, watermark: originalPost?.watermark ?? 0 });
+        }
+        if (originalVolume) block.set(originalVolume);
         setExporting(false);
         setExportProgress(null);
         abortRef.current = null;
@@ -442,7 +568,7 @@ export default function FrameStack() {
         seek(before);
       }
     },
-    [pause, seek]
+    [pause, seek, effectState, effectsOn]
   );
 
   /* ------------------------------------------------------------ keyboard */
@@ -494,6 +620,7 @@ export default function FrameStack() {
           break;
         case 'Escape':
           if (exportOpen) setExportOpen(false);
+          else if (aboutOpen) setAboutOpen(false);
           else setCinema(false);
           break;
         default:
@@ -502,7 +629,7 @@ export default function FrameStack() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [clip, exportOpen, exporting, pause, seek, step, togglePlay]);
+  }, [aboutOpen, clip, exportOpen, exporting, pause, seek, step, togglePlay]);
 
   /* --------------------------------------------------------- cinema idle */
 
@@ -541,6 +668,11 @@ export default function FrameStack() {
     };
   }, [cinema, idle]);
 
+  useEffect(() => {
+    document.body.classList.toggle('exporting-video', exporting || exportOpen);
+    return () => document.body.classList.remove('exporting-video');
+  }, [exporting, exportOpen]);
+
   /* ---------------------------------------------------------------- view */
 
   const currentFrame = Math.round(playhead);
@@ -552,7 +684,7 @@ export default function FrameStack() {
   }, [currentFrame, clip]);
 
   const metaLine = clip
-    ? `${clip.name} · ${clip.width}×${clip.height} · ${clip.fps.toFixed(2)} fps · ${clip.depth.toLocaleString()} slices · ${formatBytes(clip.volumeBytes)} volume`
+    ? `${clip.name} · ${clip.width}×${clip.height} · ${clip.fps.toFixed(2)} fps · ${clip.depth.toLocaleString()} slices · ${formatBytes(clip.volumeBytes)} frame stack`
     : '';
 
   const disabled = !clip;
@@ -574,6 +706,14 @@ export default function FrameStack() {
 
         <div className="topbar-actions">
           {clip && <span className="clip-meta">{metaLine}</span>}
+          <label className="sampling-select" title="Lower sample counts make longer videos faster to process; the full duration is always retained.">
+            <span>Video length</span>
+            <select value={temporalLimit} disabled={!!clip} onChange={(e) => setTemporalLimit(Number(e.target.value))}>
+              <option value={0}>Full detail</option>
+              <option value={1024}>Long video · 1,024 samples</option>
+              <option value={512}>Very long · 512 samples</option>
+            </select>
+          </label>
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => viewerRef.current?.resetCamera()}>
             Reset view
           </button>
@@ -582,6 +722,9 @@ export default function FrameStack() {
           </button>
           <button className="btn btn-ghost" type="button" disabled={disabled} onClick={() => setExportOpen(true)}>
             Export
+          </button>
+          <button className="btn btn-ghost" type="button" onClick={() => setAboutOpen(true)}>
+            About
           </button>
           <button className="btn btn-primary" type="button" onClick={() => fileInputRef.current?.click()}>
             Open video
@@ -623,7 +766,7 @@ export default function FrameStack() {
         <div className="canvas-host" ref={hostRef} />
 
         {!clip && !progress && (
-          <Dropzone dragging={dragging} onChoose={() => fileInputRef.current?.click()} />
+          <Dropzone dragging={dragging} onChoose={() => fileInputRef.current?.click()} demos={DEMOS} onDemo={loadDemo} />
         )}
 
         {progress && (
@@ -638,6 +781,7 @@ export default function FrameStack() {
 
         {error && <ErrorPane {...error} onDismiss={() => setError(null)} />}
         {notice && <Notice text={notice} onClose={() => setNotice(null)} />}
+        {aboutOpen && <AboutPane onClose={() => setAboutOpen(false)} />}
 
         {cinema && (
           <button className="cinema-pill" type="button" onClick={() => setCinema(false)}>
@@ -648,6 +792,7 @@ export default function FrameStack() {
         {exportOpen && clip && (
           <ExportDialog
             sourceAspect={clip.width / clip.height}
+            duration={clip.duration}
             busy={exporting}
             progress={exportProgress}
             statusText={exportStatus}
@@ -672,7 +817,7 @@ export default function FrameStack() {
         )}
       </main>
 
-      <footer className="controls">
+      {clip && <footer className="controls">
         <div className="transport">
           <button
             className="btn btn-icon"
@@ -697,11 +842,34 @@ export default function FrameStack() {
               <rect x="10.9" y="3.2" width="1.5" height="9.6" fill="currentColor" opacity=".55" />
             </svg>
           </button>
+          <button className="btn btn-icon btn-sm" type="button" disabled={disabled} aria-label="Jump to start" onClick={() => jumpTo(0)}>
+            <span aria-hidden="true">⏮</span>
+          </button>
           <button className="btn btn-icon btn-sm" type="button" disabled={disabled} aria-label="Next frame" onClick={() => step(1)}>
             <svg viewBox="0 0 16 16" aria-hidden="true">
               <path d="M5.5 3.2v9.6L11.4 8Z" fill="currentColor" />
               <rect x="3.6" y="3.2" width="1.5" height="9.6" fill="currentColor" opacity=".55" />
             </svg>
+          </button>
+          <button className="btn btn-icon btn-sm" type="button" disabled={disabled} aria-label="Jump to end" onClick={() => jumpTo((clip?.depth ?? 1) - 1)}>
+            <span aria-hidden="true">⏭</span>
+          </button>
+
+          <label className="transport-select">
+            <span className="sr-only">Playback speed</span>
+            <select value={playbackRate} disabled={disabled} aria-label="Playback speed" onChange={(e) => setPlaybackRate(Number(e.target.value))}>
+              {[0.25, 0.5, 1, 1.5, 2].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
+            </select>
+          </label>
+          <button
+            className={loop ? 'btn btn-icon btn-sm is-active' : 'btn btn-icon btn-sm'}
+            type="button"
+            disabled={disabled}
+            aria-label={loop ? 'Disable loop' : 'Enable loop'}
+            aria-pressed={loop}
+            onClick={() => setLoop((value) => !value)}
+          >
+            <span aria-hidden="true">↻</span>
           </button>
 
           <div className="scrub">
@@ -740,7 +908,7 @@ export default function FrameStack() {
               aria-selected={tab === 'volume'}
               onClick={() => setTab('volume')}
             >
-              Volume
+              Frame stack
             </button>
             <button
               className={tab === 'effects' ? 'tab is-active' : 'tab'}
@@ -773,9 +941,11 @@ export default function FrameStack() {
           <VolumePanel
             values={controls}
             followCamera={followCamera}
+            showBorder={showBorder}
             disabled={disabled}
             onChange={(key, value) => setControls((prev) => ({ ...prev, [key]: value }))}
             onFollowChange={setFollowCamera}
+            onBorderChange={setShowBorder}
           />
         ) : (
           <EffectsPanel
@@ -786,7 +956,7 @@ export default function FrameStack() {
             }
           />
         )}
-      </footer>
+      </footer>}
 
       {!ready && null}
     </div>

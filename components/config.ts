@@ -27,9 +27,12 @@ export type PostSettings = {
   chroma: number;
   vignette: number;
   grain: number;
+  bloom: number;
+  contrast: number;
+  scanline: number;
 };
 
-/** Sliders on the Volume tab. `key` is either a block setting or a UI-only value. */
+/** Sliders on the Frame stack tab. `key` is either a block setting or a UI-only value. */
 export type VolumeControl = {
   key: 'blockDepth' | 'aheadOpacity' | 'fade' | 'aheadDesat' | 'trailOpacity' | 'trailDesat' | 'sliceDensity' | 'steps';
   label: string;
@@ -38,17 +41,18 @@ export type VolumeControl = {
   step: number;
   /** How many decimals to show, or 0 for a whole number. */
   decimals: number;
+  group: 'Shape' | 'Opacity' | 'Saturation' | 'Quality';
 };
 
 export const VOLUME_CONTROLS: VolumeControl[] = [
-  { key: 'blockDepth',   label: 'Block depth',        min: 0,    max: 1,   step: 0.001, decimals: 2 },
-  { key: 'aheadOpacity', label: 'Block opacity',      min: 0,    max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'fade',         label: 'Fade with distance', min: 0,    max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'aheadDesat',   label: 'Block desaturation', min: 0,    max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'trailOpacity', label: 'Trail opacity',      min: 0,    max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'trailDesat',   label: 'Trail desaturation', min: 0,    max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'sliceDensity', label: 'Slice strength',     min: 0.05, max: 1,   step: 0.01,  decimals: 2 },
-  { key: 'steps',        label: 'Ray quality',        min: 96,   max: 768, step: 16,    decimals: 0 },
+  { key: 'blockDepth',   label: 'Block depth',        min: 0,    max: 1,   step: 0.001, decimals: 2, group: 'Shape' },
+  { key: 'aheadOpacity', label: 'Future opacity (ahead)', min: 0, max: 1,  step: 0.01,  decimals: 2, group: 'Opacity' },
+  { key: 'trailOpacity', label: 'Past trail opacity (behind)', min: 0, max: 1, step: 0.01, decimals: 2, group: 'Opacity' },
+  { key: 'sliceDensity', label: 'Current slice opacity', min: 0.05, max: 1, step: 0.01, decimals: 2, group: 'Opacity' },
+  { key: 'fade',         label: 'Fade with distance', min: 0,    max: 1,   step: 0.01,  decimals: 2, group: 'Opacity' },
+  { key: 'aheadDesat',   label: 'Future desaturation (ahead)', min: 0, max: 1, step: 0.01, decimals: 2, group: 'Saturation' },
+  { key: 'trailDesat',   label: 'Past trail desaturation (behind)', min: 0, max: 1, step: 0.01, decimals: 2, group: 'Saturation' },
+  { key: 'steps',        label: 'Ray quality',        min: 96,   max: 768, step: 16,    decimals: 0, group: 'Quality' },
 ];
 
 /**
@@ -63,16 +67,20 @@ export type EffectDef = {
   key: keyof VolumeSettings | keyof PostSettings;
   defaultOn: boolean;
   defaultAmount: number;
+  category: 'Depth' | 'Motion' | 'Lens' | 'Color' | 'Film';
 };
 
 export const EFFECTS: EffectDef[] = [
-  { id: 'haze',     label: 'Depth haze',     target: 'volume', key: 'haze',         defaultOn: true,  defaultAmount: 0.35 },
-  { id: 'glow',     label: 'Motion glow',    target: 'volume', key: 'motionGlow',   defaultOn: false, defaultAmount: 0.6  },
-  { id: 'reveal',   label: 'Motion reveal',  target: 'volume', key: 'motionReveal', defaultOn: false, defaultAmount: 0.8  },
-  { id: 'streak',   label: 'Warp streaks',   target: 'post',   key: 'streak',       defaultOn: false, defaultAmount: 0.5  },
-  { id: 'chroma',   label: 'Chromatic warp', target: 'post',   key: 'chroma',       defaultOn: false, defaultAmount: 0.45 },
-  { id: 'vignette', label: 'Vignette',       target: 'post',   key: 'vignette',     defaultOn: true,  defaultAmount: 0.4  },
-  { id: 'grain',    label: 'Film grain',     target: 'post',   key: 'grain',        defaultOn: false, defaultAmount: 0.35 },
+  { id: 'haze',     label: 'Depth haze',     target: 'volume', key: 'haze',         defaultOn: true,  defaultAmount: 0.35, category: 'Depth' },
+  { id: 'glow',     label: 'Motion glow',    target: 'volume', key: 'motionGlow',   defaultOn: false, defaultAmount: 0.6,  category: 'Motion' },
+  { id: 'reveal',   label: 'Motion reveal',  target: 'volume', key: 'motionReveal', defaultOn: false, defaultAmount: 0.8,  category: 'Motion' },
+  { id: 'streak',   label: 'Warp streaks',   target: 'post',   key: 'streak',       defaultOn: false, defaultAmount: 0.5,  category: 'Lens' },
+  { id: 'chroma',   label: 'Chromatic warp', target: 'post',   key: 'chroma',       defaultOn: false, defaultAmount: 0.45, category: 'Lens' },
+  { id: 'bloom',    label: 'Highlight bloom', target: 'post',  key: 'bloom',        defaultOn: false, defaultAmount: 0.35, category: 'Lens' },
+  { id: 'vignette', label: 'Vignette',       target: 'post',   key: 'vignette',     defaultOn: true,  defaultAmount: 0.4,  category: 'Lens' },
+  { id: 'contrast', label: 'Cinematic contrast', target: 'post', key: 'contrast',   defaultOn: false, defaultAmount: 0.3,  category: 'Color' },
+  { id: 'grain',    label: 'Film grain',     target: 'post',   key: 'grain',        defaultOn: false, defaultAmount: 0.35, category: 'Film' },
+  { id: 'scanline', label: 'Scanlines',      target: 'post',   key: 'scanline',     defaultOn: false, defaultAmount: 0.3,  category: 'Film' },
 ];
 
 export type EffectState = { on: boolean; amount: number };

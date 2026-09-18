@@ -4,7 +4,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'FrameStack',
   description:
-    'Interactive 3D video viewer — a clip becomes one solid volume, with width and height the picture and depth time.',
+    'Interactive 3D video viewer — a clip becomes one frame stack, with width and height the picture and depth time.',
 };
 
 export const viewport: Viewport = {

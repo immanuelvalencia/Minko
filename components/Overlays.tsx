@@ -1,8 +1,9 @@
 'use client';
 
-type DropzoneProps = { dragging: boolean; onChoose: () => void };
+type Demo = { id: string; title: string; description: string };
+type DropzoneProps = { dragging: boolean; onChoose: () => void; demos: Demo[]; onDemo: (id: string) => void };
 
-export function Dropzone({ dragging, onChoose }: DropzoneProps) {
+export function Dropzone({ dragging, onChoose, demos, onDemo }: DropzoneProps) {
   return (
     <div className={dragging ? 'overlay dropzone dragover' : 'overlay dropzone'}>
       <div className="dz-card">
@@ -16,13 +17,24 @@ export function Dropzone({ dragging, onChoose }: DropzoneProps) {
         </svg>
         <h2>Drop a video here</h2>
         <p>
-          The clip becomes one solid block — width and height are the picture, depth is time.
+          The clip becomes a navigable frame stack — width and height are the picture, depth is time.
           <br />
           Nothing is uploaded; decoding happens in your browser.
         </p>
         <button className="btn btn-primary" type="button" onClick={onChoose}>
           Choose a file
         </button>
+        <div className="demo-area">
+          <span className="demo-label">OR TRY A DEMO</span>
+          <div className="demo-list">
+            {demos.map((demo) => (
+              <button className="demo-card" type="button" key={demo.id} onClick={() => onDemo(demo.id)}>
+                <strong>{demo.title}</strong>
+                <span>{demo.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
         <p className="dz-hint">MP4, WebM, MOV · whatever your browser can decode</p>
       </div>
     </div>
@@ -101,6 +113,34 @@ export function Notice({ text, onClose }: NoticeProps) {
       <button className="notice-x" type="button" aria-label="Dismiss" onClick={onClose}>
         ×
       </button>
+    </div>
+  );
+}
+
+type AboutProps = { onClose: () => void };
+
+export function AboutPane({ onClose }: AboutProps) {
+  return (
+    <div className="overlay about-pane" role="presentation" onMouseDown={onClose}>
+      <section className="about-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" onMouseDown={(event) => event.stopPropagation()}>
+        <button className="about-close" type="button" aria-label="Close about panel" onClick={onClose}>×</button>
+        <p className="about-kicker">ABOUT FRAMESTACK</p>
+        <h2 id="aboutTitle">Explore motion as it unfolds through time.</h2>
+        <p>
+          FrameStack is a research visualization tool that turns video into a navigable frame stack. It makes change, continuity, and temporal structure available for direct spatial inspection.
+        </p>
+        <div className="about-credit" aria-label="Project attribution">
+          <span className="about-label">DEVELOPED BY</span>
+          <strong>Immanuel Valencia</strong>
+          <span className="about-label about-label-space">AFFILIATION</span>
+          <span>De La Salle University</span>
+          <span>Department of Biomedical, Manufacturing, and Robotics Engineering</span>
+        </div>
+        <a className="about-site" href="https://immanuelvalencia.dev" target="_blank" rel="noreferrer">
+          <span><small>WEBSITE</small>immanuelvalencia.dev</span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </section>
     </div>
   );
 }
